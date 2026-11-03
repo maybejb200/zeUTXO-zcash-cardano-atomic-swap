@@ -1,0 +1,727 @@
+    Compiling zeutxo/path1 0.0.0 (.)
+    Compiling aiken-lang/stdlib v4.0.0 (./build/packages/aiken-lang-stdlib)
+   Collecting all tests scenarios across all modules
+      Testing ...
+{
+  "seed": 4183477810,
+  "summary": {
+    "total": 76,
+    "passed": 76,
+    "failed": 0,
+    "kind": {
+      "unit": 76,
+      "property": 0
+    }
+  },
+  "modules": [
+    {
+      "name": "escrow",
+      "summary": {
+        "total": 76,
+        "passed": 76,
+        "failed": 0,
+        "kind": {
+          "unit": 76,
+          "property": 0
+        }
+      },
+      "tests": [
+        {
+          "title": "p1_commit_ok",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 181877,
+            "cpu": 340996044
+          }
+        },
+        {
+          "title": "p2_reveal_ok_long_after_t1_and_t2",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 69467,
+            "cpu": 285454410
+          }
+        },
+        {
+          "title": "p3_escape_ok_at_t3_without_secret",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 73871,
+            "cpu": 157912797
+          }
+        },
+        {
+          "title": "x2_escape_before_t3_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 74772,
+            "cpu": 158132846
+          }
+        },
+        {
+          "title": "x3_escape_from_open_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 55338,
+            "cpu": 150749120
+          }
+        },
+        {
+          "title": "x5_reveal_on_open_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 54236,
+            "cpu": 150444738
+          }
+        },
+        {
+          "title": "x6_reveal_wrong_b_or_no_bob_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 136344,
+            "cpu": 387328601
+          }
+        },
+        {
+          "title": "x7_escape_needs_alice_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 65413,
+            "cpu": 154084055
+          }
+        },
+        {
+          "title": "c1_commit_at_t1_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 135601,
+            "cpu": 316876597
+          }
+        },
+        {
+          "title": "c2_commit_without_continuing_output",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 149598,
+            "cpu": 244527860
+          }
+        },
+        {
+          "title": "c3_commit_skims_value",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 177259,
+            "cpu": 334961234
+          }
+        },
+        {
+          "title": "c4_commit_output_still_open_phase",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 180685,
+            "cpu": 339410110
+          }
+        },
+        {
+          "title": "c5_commit_output_changes_t3",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 192809,
+            "cpu": 343663441
+          }
+        },
+        {
+          "title": "c6_commit_output_with_ref_script",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 186762,
+            "cpu": 342683048
+          }
+        },
+        {
+          "title": "c7_commit_output_to_other_address",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 172031,
+            "cpu": 331741039
+          }
+        },
+        {
+          "title": "c8_double_satisfaction_two_escrows_one_output",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 192065,
+            "cpu": 340059298
+          }
+        },
+        {
+          "title": "c9_commit_two_outputs_to_script",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 192975,
+            "cpu": 418319304
+          }
+        },
+        {
+          "title": "c10_commit_on_claimed_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 83873,
+            "cpu": 240265400
+          }
+        },
+        {
+          "title": "c11_commit_without_bob_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 125671,
+            "cpu": 312636212
+          }
+        },
+        {
+          "title": "c12_commit_bad_go_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "c13_commit_output_datum_hash_not_inline",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 184237,
+            "cpu": 338393222
+          }
+        },
+        {
+          "title": "m0_go_message_matches_offchain",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 24833,
+            "cpu": 146183687
+          }
+        },
+        {
+          "title": "s1_commit_ok_rebuilt_other_fee_input_and_ttl",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 199303,
+            "cpu": 348719813
+          }
+        },
+        {
+          "title": "g1_go_sig_for_other_escrow_outref_replayed",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g1b_go_sig_for_escrow1_used_on_escrow2",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 114564,
+            "cpu": 309059614
+          }
+        },
+        {
+          "title": "g2_go_sig_other_swap_id",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g3_go_sig_other_network",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g4_go_sig_other_domain",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g5_go_sig_other_amount",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g5b_escrow_holds_other_amount_than_signed",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g6_go_sig_by_other_key",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 115928,
+            "cpu": 309362127
+          }
+        },
+        {
+          "title": "g8_go_sig_wrong_length",
+          "status": "pass",
+          "on_failure": "succeed_eventually",
+          "execution_units": {
+            "mem": 107726,
+            "cpu": 307898029
+          },
+          "traces": [
+            "Ed25519S Signature should be 64 bytes but it was 63"
+          ]
+        },
+        {
+          "title": "g9_datum_go_vk_swapped_to_other_key",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 124500,
+            "cpu": 233849794
+          }
+        },
+        {
+          "title": "g10_front_runner_copies_go_sig_without_bob_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 126535,
+            "cpu": 312858725
+          }
+        },
+        {
+          "title": "g11_front_runner_copies_b_from_mempool_reveal_without_bob_sig",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 64843,
+            "cpu": 153941336
+          }
+        },
+        {
+          "title": "n2_reveal_b_plus_r_out_of_range",
+          "status": "pass",
+          "on_failure": "succeed_eventually",
+          "execution_units": {
+            "mem": 69294,
+            "cpu": 155658315
+          }
+        },
+        {
+          "title": "n3_reveal_negative_b",
+          "status": "pass",
+          "on_failure": "succeed_eventually",
+          "execution_units": {
+            "mem": 68192,
+            "cpu": 155359353
+          }
+        },
+        {
+          "title": "n6_commit_unbounded_upper",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 141314,
+            "cpu": 318564457
+          }
+        },
+        {
+          "title": "n12_bad_point_bytes",
+          "status": "pass",
+          "on_failure": "succeed_eventually",
+          "execution_units": {
+            "mem": 156,
+            "cpu": 182516920
+          },
+          "traces": [
+            "blst error BLST_BAD_ENCODING"
+          ]
+        },
+        {
+          "title": "s2_double_satisfaction_other_stake_credential",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 191329,
+            "cpu": 340025811
+          }
+        },
+        {
+          "title": "s3_commit_output_changes_bob_or_b_c",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 374985,
+            "cpu": 709862415
+          }
+        },
+        {
+          "title": "s4_commit_output_extra_token_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 197552,
+            "cpu": 340298131
+          }
+        },
+        {
+          "title": "s5_escape_reveals_nothing_redeemer_has_no_fields",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 81154,
+            "cpu": 159934231
+          }
+        },
+        {
+          "title": "q1_notice_by_alice_at_t1",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 188727,
+            "cpu": 286492213
+          }
+        },
+        {
+          "title": "q2_notice_by_bob_at_t2",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 199566,
+            "cpu": 290102474
+          }
+        },
+        {
+          "title": "q3_refund_reveal_ok_long_after_t4",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 83895,
+            "cpu": 290315390
+          }
+        },
+        {
+          "title": "q4_forfeit_ok_at_t4",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 97119,
+            "cpu": 166719007
+          }
+        },
+        {
+          "title": "q5_alice_notice_before_t1_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 145910,
+            "cpu": 262965356
+          }
+        },
+        {
+          "title": "q6_bob_notice_between_t1_and_t2_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 146142,
+            "cpu": 263079019
+          }
+        },
+        {
+          "title": "q7_notice_without_party_sig_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 144221,
+            "cpu": 262070061
+          }
+        },
+        {
+          "title": "q8_notice_t4_one_ms_short_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 201287,
+            "cpu": 289710634
+          }
+        },
+        {
+          "title": "q9_notice_t4_from_lower_bound_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 187535,
+            "cpu": 284906279
+          }
+        },
+        {
+          "title": "q10_notice_range_over_6h_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 136807,
+            "cpu": 259929852
+          }
+        },
+        {
+          "title": "q11_notice_range_exactly_6h_ok",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 188727,
+            "cpu": 286492213
+          }
+        },
+        {
+          "title": "q12_notice_unbounded_upper_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 117393,
+            "cpu": 252484082
+          }
+        },
+        {
+          "title": "q13_notice_skims_value_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 184109,
+            "cpu": 280457403
+          }
+        },
+        {
+          "title": "q14_notice_on_claimed_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 114867,
+            "cpu": 251853535
+          }
+        },
+        {
+          "title": "q15_renotice_on_refunding_to_extend_t4_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 128659,
+            "cpu": 256711493
+          }
+        },
+        {
+          "title": "q16_notice_double_satisfaction_two_escrows_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 199215,
+            "cpu": 285603467
+          }
+        },
+        {
+          "title": "q17_notice_output_wrong_phase_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 398453,
+            "cpu": 526091311
+          }
+        },
+        {
+          "title": "q18_notice_output_changes_other_field_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 381709,
+            "cpu": 520306861
+          }
+        },
+        {
+          "title": "q19_notice_output_ref_script_or_other_address_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 343126,
+            "cpu": 424645376
+          }
+        },
+        {
+          "title": "q20_commit_on_refunding_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 123973,
+            "cpu": 254317406
+          }
+        },
+        {
+          "title": "q21_reveal_b_or_escape_on_refunding_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 136823,
+            "cpu": 258101651
+          }
+        },
+        {
+          "title": "q22_refund_reveal_on_open_or_claimed_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 113349,
+            "cpu": 249629297
+          }
+        },
+        {
+          "title": "q23_refund_reveal_wrong_a_or_not_alice_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 166436,
+            "cpu": 397526640
+          }
+        },
+        {
+          "title": "q24_forfeit_before_t4_or_not_bob_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 166564,
+            "cpu": 191471412
+          }
+        },
+        {
+          "title": "q25_forfeit_on_open_or_claimed_rejected_even_though_t4_is_zero",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 113349,
+            "cpu": 249629297
+          }
+        },
+        {
+          "title": "q26_no_datum",
+          "status": "pass",
+          "on_failure": "succeed_eventually",
+          "execution_units": {
+            "mem": 22215,
+            "cpu": 63221995
+          },
+          "traces": [
+            "the validator crashed / exited prematurely",
+            "expect Some(d) = datum"
+          ]
+        },
+        {
+          "title": "q27_notice_by_bob_with_alice_window_but_bob_sig_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 146142,
+            "cpu": 263079019
+          }
+        },
+        {
+          "title": "q28_commit_output_must_keep_t4_zero",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 194437,
+            "cpu": 344214465
+          }
+        },
+        {
+          "title": "r5_a1_reveal_and_escape_both_valid_after_t3",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 144607,
+            "cpu": 391017500
+          }
+        },
+        {
+          "title": "r5_a2_commit_bundled_with_other_escrow_reveal_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 198233,
+            "cpu": 421215944
+          }
+        },
+        {
+          "title": "r5_a3_notice_bundled_with_other_escrow_rejected",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 217971,
+            "cpu": 371223655
+          }
+        },
+        {
+          "title": "r5_a4_reveal_and_forfeit_of_two_escrows_in_one_tx_accepted",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 141051,
+            "cpu": 390601165
+          }
+        },
+        {
+          "title": "r5_a5_bob_notice_max_t4_push_is_6h",
+          "status": "pass",
+          "on_failure": "fail_immediately",
+          "execution_units": {
+            "mem": 345887,
+            "cpu": 500675314
+          }
+        }
+      ]
+    }
+  ]
+}
+      Summary 76 checks, 0 errors, 0 warnings

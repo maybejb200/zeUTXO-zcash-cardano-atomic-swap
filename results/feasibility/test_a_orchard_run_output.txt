@@ -1,0 +1,8 @@
+sample: sigma=1 ak=975bcff03a0ea7b31adf149f89db41ec8a48901972e8cf833bccf9a0f19bb709 rk=16a8b2de871a3386618ce25d47e82fb266322045f628649edc7fb0602153461c nf=0bf697e764b58566179b5c635d44cf95816819610abfe04ffdd345dc2bbf632f
+trials=64 checks_passed=1664 checks_failed=0 sigma=+1 trials=32 sigma=-1 trials=32
+both ỹ-normalization branches exercised: true
+OVERALL PASS
+
+real	0m1.714s
+user	0m1.710s
+sys	0m0.004s

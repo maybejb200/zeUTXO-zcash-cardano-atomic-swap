@@ -1,0 +1,22 @@
+maxTxExecutionUnits (mainnet, epoch 665, https://supercardano.com/params): mem 16,500,000 / steps 10,000,000,000. Vector from test_b_dleq/run_output.txt AIKEN_VECTOR.
+test                                     status       mem    %mem          cpu    %cpu
+c0_share_check_decompress                pass        3257  0.020%    183454928  1.835%
+c0_share_check_compress                  pass        3245  0.020%    132874681  1.329%
+c0_baseline_constants                    pass        1001  0.006%       220149  0.002%
+c1_redeem_ok                             pass       80923  0.490%    208444418  2.084%
+c1_baseline_tx_build_only                pass       39321  0.238%     12205511  0.122%
+c2_refund_ok                             pass       70242  0.426%    283863611  2.839%
+c3_punish_ok                             pass       62988  0.382%     72781421  0.728%
+n1_redeem_wrong_b                        pass       82388  0.499%    208838980  2.088%
+n2_redeem_b_plus_r_out_of_range          pass       80750  0.489%     78648323  0.786%
+n3_redeem_negative_b                     pass       79648  0.483%     78349361  0.783%
+n4_redeem_without_go_sig                 pass       54024  0.327%     68973286  0.690%
+n5_redeem_at_t1                          pass       75131  0.455%     76769676  0.768%
+n6_redeem_unbounded_upper                pass       80976  0.491%     78624012  0.786%
+n7_refund_before_t1                      pass       64682  0.392%    152302532  1.523%
+n8_refund_wrong_a                        pass       71707  0.435%    284258173  2.843%
+n9_punish_before_t2                      pass       63589  0.385%     72953470  0.730%
+n10_punish_without_bob_sig               pass       55458  0.336%     69407331  0.694%
+n11_no_datum                             pass       22430  0.136%     61150369  0.612%
+n12_bad_point_bytes                      pass         156  0.001%    182516920  1.825%
+escrow.escrow.spend 779 bytes

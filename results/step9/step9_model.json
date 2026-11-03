@@ -1,0 +1,199 @@
+{
+ "derivation": "zeUTXO path1 STEP 9 \u2014 post-NU7 timing (escrow v0.7 unchanged) + Z-from-price table + Bob's reveal hold cap.\nSame derivation as step8_model.budgets8 (imported). New in step 9:\n  * Post-NU7 block reward to miners: NU6 subsidy 1.5625 ZEC x 80% (20% lockbox/dev fund) = 1.25 ZEC at 75 s;\n    NU7 (ZIP 218 spacing 75 s -> 25 s) divides the per-block subsidy by 3 so issuance per unit time is unchanged:\n    R = 1.25 / 3 = 0.41667 ZEC per block. Fees ignored (conservative: smaller R -> larger Z).\n  * Economic depth: a reorg-for-profit attacker forgoes ~honest reward on the blocks he must out-mine; requiring\n    Z >= 2 V / (R P) blocks (V = swap USD value, P = ZEC/USD from the live feed) makes the rewards an attacker has to\n    burn at least twice the swap value. Z = max(security(q, eps, stale), ceil(2V/(R P)), floor); floors: nu7 30.\n  * Bob's reveal: hold at most HOLD_CAP = 90 min after his Commit settles (<=10% of tail), then broadcast regardless;\n    after T3 - 2 d broadcast with a loud warning. Lock-ups unchanged (the hold sits inside the 7 d tail).",
+ "miner_reward_zec_per_block_nu7": 0.41667,
+ "econ_Z_hand_check_15000usd_at_1254.54": 58,
+ "Z_by_price": {
+  "300": {
+   "v1_15000": {
+    "z": 240,
+    "zSecurity": 69,
+    "zEconomic": 240,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 80,
+    "zSecurity": 69,
+    "zEconomic": 80,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 8,
+    "zFloor": 30
+   }
+  },
+  "500": {
+   "v1_15000": {
+    "z": 144,
+    "zSecurity": 69,
+    "zEconomic": 144,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 48,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 5,
+    "zFloor": 30
+   }
+  },
+  "800": {
+   "v1_15000": {
+    "z": 90,
+    "zSecurity": 69,
+    "zEconomic": 90,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 30,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 3,
+    "zFloor": 30
+   }
+  },
+  "1043": {
+   "v1_15000": {
+    "z": 70,
+    "zSecurity": 69,
+    "zEconomic": 70,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 24,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 3,
+    "zFloor": 30
+   }
+  },
+  "2000": {
+   "v1_15000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 36,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 12,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 2,
+    "zFloor": 30
+   }
+  },
+  "1254.54": {
+   "v1_15000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 58,
+    "zFloor": 30
+   },
+   "v1_5000": {
+    "z": 69,
+    "zSecurity": 69,
+    "zEconomic": 20,
+    "zFloor": 30
+   },
+   "rehearsal_500": {
+    "z": 30,
+    "zSecurity": 9,
+    "zEconomic": 2,
+    "zFloor": 30
+   }
+  }
+ },
+ "v1_gate_37.5s_sigma0.25_min": {
+  "D": 15.0,
+  "S": 12.5,
+  "M": 54.9,
+  "Mc": 29.9,
+  "R": 5.0,
+  "zec_funding_budget": 117.2,
+  "T0": 144.7,
+  "LAST_COMMIT": 149.7,
+  "T1": 179.6,
+  "T2": 227.1,
+  "T3": 10259.6,
+  "refund_notice_settled": 222.1,
+  "refund_done_honest": 249.5,
+  "reveal_deadline_after_alice_notice": 10264.7,
+  "t4_alice_notice": 10319.6,
+  "t4_bob_notice": 10367.1
+ },
+ "v1_nominal_25s_min": {
+  "D": 3.7,
+  "S": 12.5,
+  "M": 32.5,
+  "Mc": 7.5,
+  "R": 5.0,
+  "zec_funding_budget": 78.1,
+  "T0": 94.4,
+  "LAST_COMMIT": 99.4,
+  "T1": 106.9,
+  "T2": 131.9,
+  "T3": 10186.9,
+  "refund_notice_settled": 126.9,
+  "refund_done_honest": 143.1,
+  "reveal_deadline_after_alice_notice": 10214.4,
+  "t4_alice_notice": 10246.9,
+  "t4_bob_notice": 10271.9
+ },
+ "rehearsal_nu7_K15_Z30_tail2h_min": {
+  "D": 15.0,
+  "S": 12.5,
+  "M": 54.9,
+  "Mc": 29.9,
+  "R": 5.0,
+  "zec_funding_budget": 56.2,
+  "T0": 83.7,
+  "LAST_COMMIT": 88.7,
+  "T1": 118.7,
+  "T2": 166.1,
+  "T3": 238.7,
+  "refund_notice_settled": 161.1,
+  "refund_done_honest": 188.6,
+  "reveal_deadline_after_alice_notice": 243.7,
+  "t4_alice_notice": 298.7,
+  "t4_bob_notice": 346.1
+ },
+ "bob_reveal": {
+  "hold_cap_min_real": 90,
+  "late_cutoff": "T3 - 2 d",
+  "hold_cap_frac_of_tail": 0.0089,
+  "rehearsal_hold_cap_min": 12,
+  "rehearsal_late_cutoff_min_before_T3": 34
+ },
+ "lockups_v1_days": {
+  "bob_commits_then_stalls_alice": 7.12,
+  "alice_notices_then_stalls_bob": 7.17,
+  "worst_case_any_party": 7.2
+ },
+ "rehearsal_wall_clock_min": {
+  "happy_path_to_T1": 118.7,
+  "T3": 238.7,
+  "t4_bob_notice": 346.1
+ },
+ "nu7_blackout_v1_s": 704826
+}

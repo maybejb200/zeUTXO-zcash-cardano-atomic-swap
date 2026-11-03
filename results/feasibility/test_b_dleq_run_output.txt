@@ -1,0 +1,36 @@
+PASS | G1 good proof accepted | accepted
+PASS | N1 tampered bit commitment (C5,D5 += G) | rejected: sum C != P
+PASS | N2 non-binary digit (2) with correct weighted sum | rejected: ring
+PASS | N3 different scalars in the two groups (x vs x^2^7) | rejected: ring
+PASS | N4 F7 blinders not summing to zero | rejected: sum C != P
+PASS | N5 F7 attack: published SHIFTED points P'=xG+rhoH, Q'=xG'+sigH' (full verifier, with PoK) | rejected: PoK dlog(P) fails
+PASS | N5-naive (INFO): same F7 attack vs verifier WITHOUT PoKs is accepted (expected gap; PoKs close it) | naive verifier accepted=true
+PASS | N6 out-of-range scalar (2^252 <= x), 253-bit proof | rejected: length
+PASS | N7 out-of-range scalar, proof truncated to 252 bits | rejected: sum C != P
+PASS | N8 'negative' scalar q-1 claimed as -G on both curves | rejected: sum C != P
+PASS | N9 swapped bit proofs 3<->7 | rejected: sum C != P
+PASS | N10 swapped commitments C3<->C7, D3<->D7 | rejected: sum C != P
+PASS | N11 truncated proof (last 10 bytes cut) | rejected: length
+PASS | N12 proof with trailing byte | rejected: length
+PASS | N13 replay with different swap context | rejected: ring
+PASS | N14 replay for another statement (P2,Q2) | rejected: sum C != P
+PASS | N15 mismatched points (P from x, Q from x2) | rejected: sum D != Q
+PASS | N16 negated Q | rejected: sum D != Q
+PASS | N17 negated P | rejected: sum C != P
+PASS | N18 tampered response s1b (bit 100) | rejected: ring
+PASS | N19 tampered challenge e0 (bit 0) | rejected: ring
+PASS | N20 non-canonical scalar encoding | rejected: s non-canonical
+PASS | N21 swapped generator on BLS side (Q = x*H_b) | rejected: ring
+PASS | N22 identity statement x=0 | rejected: identity statement
+PASS | N23 non-subgroup BLS point as D_0 | rejected: D decode/subgroup
+PASS | N24 non-subgroup BLS point as statement Q | rejected: Q decode/subgroup
+PASS | N25 tampered PoK response | rejected: PoK dlog(P) fails
+PASS | N26 PoK transplanted from another proof (transcript binding) | rejected: PoK dlog(P) fails
+PASS | H 200 random honest proofs accepted | 200/200 in 200.0s
+bits=252 proof_size_bytes=60624 prove_ms=528 verify_ms=456
+AIKEN_VECTOR x_be_hex=0365e24270862827c574601066cdb7c26b871e286f2878d8472a4a0a4b39ddb9 Q_compressed=a98d8d234f61eb37a907edc1391420b922e47ecfa17768d99b8f86585e5c137d16ad286d5298f60666bebe8f37add9f1
+OVERALL PASS
+
+real	3m28.826s
+user	3m28.414s
+sys	0m0.364s

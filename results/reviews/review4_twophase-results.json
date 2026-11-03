@@ -1,0 +1,467 @@
+{
+  "tp_happy": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=-1 swap_id=0e46746edd46196b191ce8cdd424413194598b5dbe185e1e23d3b781be5ba3bb"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Bob's Commit (go_sig, no secret) settles before T1",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit carried no secret: neither a nor b appears in any broadcast redeemer",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Claimed UTxO at the same script address with the same value and phase=1 datum",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice tries Refund{a} on the Claimed UTxO at T1: script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "Bob's Reveal{b} settles (after T1: no deadline)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "1793685609830"
+      },
+      {
+        "name": "Alice reads b from the Reveal",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice sweeps the ZEC with a+b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Bob holds the ADA (+1299.43319 ADA balance)",
+        "expect": "accept",
+        "ok": true
+      }
+    ],
+    "events": [],
+    "dropped": []
+  },
+  "tp_censor_commit": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=-1 swap_id=fad6d36de28116dfba08b041753dda1e49b4670d4bf85eec31bf618ef0f0105f"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit censored past T1: not included, dropped as outside its validity interval",
+        "expect": "observe",
+        "ok": true,
+        "detail": "Commit not included by T1 (pending)"
+      },
+      {
+        "name": "b was NEVER broadcast (Bob does not reveal before Commit settles)",
+        "expect": "accept",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Alice refunds her ADA with a (escrow still Open)",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice cannot sweep the ZEC (she never learned b)",
+        "expect": "reject /bad spend-auth sigs/",
+        "ok": true,
+        "detail": "node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)"
+      },
+      {
+        "name": "Bob takes his ZEC back with a: censorship cost only liveness, no theft",
+        "expect": "accept",
+        "ok": true
+      }
+    ],
+    "events": [
+      "slot 640: DROPPED commit#1: OutsideValidityInterval: slot 640 >= ttl 559"
+    ],
+    "dropped": [
+      {
+        "hash": "fe7251954a00fa0358622df0e8fc713d7336961844cf5d450d822d9ace72f6ac",
+        "label": "commit#1",
+        "reason": "OutsideValidityInterval: slot 640 >= ttl 559",
+        "slot": 640
+      }
+    ]
+  },
+  "tp_censor_reveal": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=1 swap_id=337e80629169653e708f78a5766cb1cac36110f05143927dd2b9847a1458db62"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit settles",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice reads b from the censored Reveal in the mempool",
+        "expect": "observe",
+        "ok": true
+      },
+      {
+        "name": "Alice sweeps the ZEC (her side of the trade, as agreed)",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice tries Refund{a} at T1 on the Claimed UTxO (the congestion3 theft): script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "Alice tries Escape at T2 (< T3): script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "censorship lifted after T2: the SAME Reveal is still valid and settles; Bob gets the ADA",
+        "expect": "accept",
+        "ok": true,
+        "detail": "settled 640 s after T2"
+      }
+    ],
+    "events": [],
+    "dropped": []
+  },
+  "tp_censor_to_t3": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=-1 swap_id=7061912780166758df212c3495c8e419a901237a954175d16fa34b94631d6ac7"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit settles",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "CONTROL: only censorship lasting the whole T3 window (sim 25.333333333333332 min; real ≥ 7 days) lets Alice escape with the ADA too",
+        "expect": "observe",
+        "ok": true
+      }
+    ],
+    "events": [],
+    "dropped": []
+  },
+  "tp_commit_rollback": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=1 swap_id=b0945b9cb466d585091863d4e690324c857d7827c920a2a370f53d8bcd440771"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit was included, then orphaned after T1 and dropped on re-validation (outside validity interval)",
+        "expect": "observe",
+        "ok": true,
+        "detail": "OutsideValidityInterval: slot 580 >= ttl 559"
+      },
+      {
+        "name": "Bob's wallet refuses to reveal b (Commit not settled)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "Commit not settled: do not reveal b"
+      },
+      {
+        "name": "Alice refunds with a",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Bob recovers his ZEC: no loss",
+        "expect": "accept",
+        "ok": true
+      }
+    ],
+    "events": [
+      "slot 561: ROLLBACK 2 block(s), orphaned [commit#late]",
+      "slot 580: DROPPED commit#late: OutsideValidityInterval: slot 580 >= ttl 559"
+    ],
+    "dropped": [
+      {
+        "hash": "2d8f82d5f8326d17353c12a139e53da95833282f1fe034d91b1f3a81431c2f94",
+        "label": "commit#late",
+        "reason": "OutsideValidityInterval: slot 580 >= ttl 559",
+        "slot": 580
+      }
+    ]
+  },
+  "tp_bob_silent": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=-1 swap_id=2a6e347448f9d2b17a0e4e6a113bb65622319f8ae27e82f8dbf964876a183132"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit settles",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Alice's Escape (no secret) settles at T3: ADA back to Alice",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "a was never broadcast",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Bob cannot recover his ZEC (he never learned a): non-reveal costs Bob everything, so it is dominated",
+        "expect": "reject /bad spend-auth sigs/",
+        "ok": true,
+        "detail": "node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)"
+      },
+      {
+        "name": "Bob's late Reveal after the Escape: input already spent",
+        "expect": "reject /^BadInputsUTxO/",
+        "ok": true,
+        "detail": "BadInputsUTxO: input 298bfe8152dda3c65a67ee92f2daec1b6e711c4eb38c10dd3c18d65d32a5b8930 missing or spent"
+      }
+    ],
+    "events": [],
+    "dropped": []
+  },
+  "tp_commit_cheats": {
+    "pass": true,
+    "checks": [
+      {
+        "name": "setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id",
+        "expect": "accept",
+        "ok": true,
+        "detail": "σ=-1 swap_id=44cf0a59862ac89abde1bcecd35c8544864ad130d10c7424cb035f7f4d093518"
+      },
+      {
+        "name": "Bob refuses to fund while the lock is not yet settled (H-1)",
+        "expect": "reject",
+        "ok": true,
+        "detail": "lock not settled (1 < 3 confirmations)"
+      },
+      {
+        "name": "Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "null"
+      },
+      {
+        "name": "Alice gives \"go\" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0)",
+        "expect": "accept",
+        "ok": true,
+        "detail": "status funded_ok, 160 s before T0"
+      },
+      {
+        "name": "Bob verifies the go signature off-chain against this escrow before revealing b",
+        "expect": "accept",
+        "ok": true
+      },
+      {
+        "name": "Commit whose output keeps phase=0 (re-openable): script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "Commit whose output moves T3 to T1 (early escape): script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "Commit with an upper bound after T1: script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "Commit with a go_sig over another outref: node Ed25519 / script rejects",
+        "expect": "reject /^ScriptFailure \\(phase 2\\)/",
+        "ok": true,
+        "detail": "ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely"
+      },
+      {
+        "name": "positive control: honest Commit settles",
+        "expect": "accept",
+        "ok": true
+      }
+    ],
+    "events": [],
+    "dropped": []
+  },
+  "elapsed_s": 61.25,
+  "script_hash": "7ef57f0a1bdef63656709a7b88d3cbd769e10461ee801b2d77231a9f",
+  "script_bytes": 1866
+}

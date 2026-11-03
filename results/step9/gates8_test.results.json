@@ -1,0 +1,350 @@
+[
+ {
+  "id": "V1",
+  "name": "amount NaN (bad lovelace parse) → swap usd NaN is refused",
+  "safe": true,
+  "detail": "REFUSE: swap value not computable (amount or price missing/invalid)"
+ },
+ {
+  "id": "V2",
+  "name": "feed.zecUsd = NaN is refused",
+  "safe": true,
+  "detail": "REFUSE: feed ZEC/USD price missing or invalid"
+ },
+ {
+  "id": "V2b",
+  "name": "feed without zecUsd is refused",
+  "safe": true,
+  "detail": "REFUSE: feed ZEC/USD price missing or invalid"
+ },
+ {
+  "id": "V3",
+  "name": "feed dated 30 days in the FUTURE is refused",
+  "safe": true,
+  "detail": "REFUSE: feed dated 720.0 h in the future (clock or feed error)"
+ },
+ {
+  "id": "V4",
+  "name": "empty pool list is refused",
+  "safe": true,
+  "detail": "REFUSE: malformed pool-share feed (no pools)"
+ },
+ {
+  "id": "V5",
+  "name": "10 ZEC when the LIVE feed says $2,509/ZEC ($25,091 > $15k cap) is refused (usd from the feed, not constants)",
+  "safe": true,
+  "detail": "REFUSE: $25091 above the v1 cap $15000 (live feed prices)"
+ },
+ {
+  "id": "N1",
+  "name": "node status without nu7_height (undefined) is refused",
+  "safe": true,
+  "detail": "REFUSE: node did not report a valid NU7 activation height (fail closed)"
+ },
+ {
+  "id": "N2",
+  "name": "nu7_height = NaN is refused",
+  "safe": true,
+  "detail": "REFUSE: node did not report a valid NU7 activation height (fail closed)"
+ },
+ {
+  "id": "N3",
+  "name": "measured spacing NaN is refused",
+  "safe": true,
+  "detail": "REFUSE: measured block spacing missing, zero or invalid (no nominal fallback)"
+ },
+ {
+  "id": "N4",
+  "name": "unmeasurable spacing (0) is refused, and e2e4.mjs no longer substitutes nominal via `||`",
+  "safe": true,
+  "detail": "REFUSE: measured block spacing missing, zero or invalid (no nominal fallback); fallback in source: false"
+ },
+ {
+  "id": "N5",
+  "name": "the nu7-far test label is computed from the code (no hard-coded '3,613')",
+  "safe": true,
+  "detail": "label uses nu7BlackoutBlocks(): true; e.g. 5857 swap + 1152 pre blocks"
+ },
+ {
+  "id": "N6",
+  "name": "post-activation blackout fires on its own (branch agreed = NU7, tip 100 blocks after activation)",
+  "safe": true,
+  "detail": "REFUSE: NU7 blackout — activation at 100 is within 24 h of the swap window (tip 200)"
+ },
+ {
+  "id": "P1",
+  "name": "no premium exists any more (P7 has no premium, policy7 exports no premiumGate)",
+  "safe": true,
+  "detail": "P7 keys: maxAgeH,maxFutureMin,eps,policyUsd,stale,qFloor,maxSingle,maxTop2,zFloor,kFloor,exposure,gateMult,minSpacingWindow,blackoutH,postBlackoutSpacingS,preBlackoutSpacingS,mempoolMax,minDirectStake"
+ },
+ {
+  "id": "P2",
+  "name": "the swap flow references no premium gate",
+  "safe": true,
+  "detail": "grep e2e4.mjs for premiumGate / P6.premium"
+ },
+ {
+  "id": "G1",
+  "name": "noticeGate refuses NaN now",
+  "safe": true,
+  "detail": "REFUSE: time inputs missing or invalid"
+ },
+ {
+  "id": "G2",
+  "name": "revealGate holds on NaN mempool fill (before T3 − M)",
+  "safe": true,
+  "detail": "HOLD: own node's mempool fill unknown — not < 50%"
+ },
+ {
+  "id": "X1",
+  "name": "spacing measured over only 12 blocks is refused (needs ≥ 48)",
+  "safe": true,
+  "detail": "REFUSE: block spacing measured over 12 blocks < 48 (fail closed; no nominal fallback)"
+ },
+ {
+  "id": "X2",
+  "name": "nu7_height = null is refused (the node must always report one)",
+  "safe": true,
+  "detail": "REFUSE: node did not report a valid NU7 activation height (fail closed)"
+ },
+ {
+  "id": "X3",
+  "name": "node NU7 support unknown is refused",
+  "safe": true,
+  "detail": "REFUSE: node does not implement NU7 (or did not say so) — it could follow a minority pre-NU7 chain"
+ },
+ {
+  "id": "X4",
+  "name": "negative ADA price is refused",
+  "safe": true,
+  "detail": "REFUSE: feed ADA/USD price missing or invalid"
+ },
+ {
+  "id": "X5",
+  "name": "NaN pool share is refused",
+  "safe": true,
+  "detail": "REFUSE: malformed pool-share feed"
+ },
+ {
+  "id": "X6",
+  "name": "negative amount is refused",
+  "safe": true,
+  "detail": "REFUSE: swap value not computable (amount or price missing/invalid)"
+ },
+ {
+  "id": "X7",
+  "name": "NaN wallet clock is refused",
+  "safe": true,
+  "detail": "REFUSE: wallet clock (now) missing or invalid"
+ },
+ {
+  "id": "X8",
+  "name": "NaN depth is refused",
+  "safe": true,
+  "detail": "REFUSE: depths missing or invalid"
+ },
+ {
+  "id": "X9",
+  "name": "Notice with escrow state unknown is refused",
+  "safe": true,
+  "detail": "REFUSE: escrow not Open (committed, already noticed, spent or unknown)"
+ },
+ {
+  "id": "X10",
+  "name": "RefundReveal with NaN Notice confirmations is refused",
+  "safe": true,
+  "detail": "REFUSE: Notice not settled (NaN < 3 confirmations): do not reveal a"
+ },
+ {
+  "id": "X11",
+  "name": "RefundReveal with the Notice < K deep is refused (mirror of Bob's rule)",
+  "safe": true,
+  "detail": "REFUSE: Notice not settled (2 < 3 confirmations): do not reveal a"
+ },
+ {
+  "id": "X12",
+  "name": "reveal with Commit depth NaN is refused",
+  "safe": true,
+  "detail": "REFUSE: Commit not settled (NaN < 3 confirmations): do not reveal b"
+ },
+ {
+  "id": "X13",
+  "name": "reveal before the Commit has K confirmations is refused",
+  "safe": true,
+  "detail": "REFUSE: Commit not settled (2 < 3 confirmations): do not reveal b"
+ },
+ {
+  "id": "X14",
+  "name": "commit gate refuses NaN now",
+  "safe": true,
+  "detail": "REFUSE: time inputs missing or invalid"
+ },
+ {
+  "id": "X15",
+  "name": "upgrade blackout refuses a missing upgrade list",
+  "safe": true,
+  "detail": "REFUSE: scheduled-upgrade list missing (fail closed)"
+ },
+ {
+  "id": "X16",
+  "name": "Cardano hard fork 19 h after the window: refused",
+  "safe": true,
+  "detail": "REFUSE: upgrade blackout — Cardano hard fork within 24 h of the swap window"
+ },
+ {
+  "id": "X17",
+  "name": "escape with 'saw b' unknown is refused",
+  "safe": true,
+  "detail": "REFUSE: b was seen (or unknown) — honest Alice already swept the ZEC and does not escape"
+ },
+ {
+  "id": "X18",
+  "name": "feed dated 6 min in the future is refused",
+  "safe": true,
+  "detail": "REFUSE: feed dated 0.1 h in the future (clock or feed error)"
+ },
+ {
+  "id": "R1",
+  "name": "Alice Notice before T1 is refused",
+  "safe": true,
+  "detail": "REFUSE: before T1 (the script rejects a Notice before T1)"
+ },
+ {
+  "id": "R2",
+  "name": "Notice on a committed/spent escrow is refused",
+  "safe": true,
+  "detail": "REFUSE: escrow not Open (committed, already noticed, spent or unknown)"
+ },
+ {
+  "id": "R3",
+  "name": "Bob Notice before T2 is refused",
+  "safe": true,
+  "detail": "REFUSE: before T2 (Alice has the first chance to Notice)"
+ },
+ {
+  "id": "R4",
+  "name": "Bob Notice with T2 missing is refused",
+  "safe": true,
+  "detail": "REFUSE: time inputs missing or invalid"
+ },
+ {
+  "id": "R5",
+  "name": "RefundReveal on an unexpected Refunding datum (e.g. short t4) is refused",
+  "safe": true,
+  "detail": "REFUSE: no Refunding output with the expected datum/value (never reveal a on any other UTxO)"
+ },
+ {
+  "id": "R6",
+  "name": "RefundReveal after t4 − M is refused",
+  "safe": true,
+  "detail": "REFUSE: past t4 − M (a RefundReveal pending at t4 would hand a to Bob, who could Forfeit)"
+ },
+ {
+  "id": "R7",
+  "name": "RefundReveal with t4 = 0 (not a Refunding datum) is refused",
+  "safe": true,
+  "detail": "REFUSE: time inputs missing or invalid"
+ },
+ {
+  "id": "R8",
+  "name": "RefundReveal with K missing is refused",
+  "safe": true,
+  "detail": "REFUSE: settlement depth K missing or invalid"
+ },
+ {
+  "id": "R9",
+  "name": "Forfeit before t4 is refused",
+  "safe": true,
+  "detail": "REFUSE: before t4"
+ },
+ {
+  "id": "R10",
+  "name": "Forfeit after a was seen is refused (honest Bob sweeps instead)",
+  "safe": true,
+  "detail": "REFUSE: a was seen (or unknown) — honest Bob sweeps his ZEC back and does not Forfeit"
+ },
+ {
+  "id": "R11",
+  "name": "Forfeit with 'saw a' unknown is refused",
+  "safe": true,
+  "detail": "REFUSE: a was seen (or unknown) — honest Bob sweeps his ZEC back and does not Forfeit"
+ },
+ {
+  "id": "R12",
+  "name": "Forfeit on a non-Refunding escrow is refused",
+  "safe": true,
+  "detail": "REFUSE: escrow is not in the Refunding state"
+ },
+ {
+  "id": "R13",
+  "name": "the swap flow no longer references refundStartGate7 / LAST_REFUND",
+  "safe": true,
+  "detail": "grep e2e4.mjs"
+ },
+ {
+  "id": "C1",
+  "name": "positive control: valid feed + $1,627 swap at K=15, Z=69 → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C2",
+  "name": "positive control: NU7 far away, 48-block measured spacing 75 s → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C3",
+  "name": "positive control: Notice: Open, at/after T1 → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C9",
+  "name": "positive control: Bob Notice: Open, at/after T2 → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C10",
+  "name": "positive control: RefundReveal: Notice K deep, datum ok, before t4 − M → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C11",
+  "name": "positive control: Forfeit: at t4, Refunding, a not seen → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C4",
+  "name": "positive control: reveal: Commit K-deep, mempool 10%, stake 100% → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C5",
+  "name": "positive control: reveal late (≥ T3 − M) despite a full mempool: reveal anyway → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C6",
+  "name": "positive control: commit before LAST_COMMIT → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C7",
+  "name": "positive control: upgrade list present and empty → allowed",
+  "safe": true,
+  "detail": "allowed"
+ },
+ {
+  "id": "C8",
+  "name": "positive control: escape at T3, Claimed, b not seen → allowed",
+  "safe": true,
+  "detail": "allowed"
+ }
+]

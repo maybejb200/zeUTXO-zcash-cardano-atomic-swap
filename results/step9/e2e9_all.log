@@ -1,0 +1,778 @@
+== L-1 setup-proof replay / binding
+  [ok] control: honest two-round setup accepted by both; same swap_id; re-running setup on the SAME swap is not flagged (accept) — ce447d0bffef6923d1e4b8cc21b854bd94b3e980e4449e1816facc371b81cccd
+  [ok] Bob replays his whole round-1 message + proof from another swap to a new Alice (fresh registry): transcript binding rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Alice replays her round-1 message + proof from another swap to a new Bob: transcript binding rejects (reject /^ABORT: alice's DLEQ proof invalid \(ring\)$/) — ABORT: alice's DLEQ proof invalid (ring)
+  [ok] Bob replays only the old (P, Q, proof) with a fresh nonce/commitment: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob re-proves his OLD share (valid proof, new transcript) to an Alice who saw it: seen-point registry rejects (reject /^ABORT: bob's share point P already seen in an earlier swap/) — ABORT: bob's share point P already seen in an earlier swap (reuse is fatal: refuse)
+  [ok] (limit) same reused share to a NEW Alice with a fresh registry: the valid proof is accepted; only a global/on-chain seen list (spec A.5) can catch it (accept (documented limit)) — accepted
+  [ok] Bob reuses his setup nonce from an earlier swap with the same Alice: rejected (reject /^ABORT: bob's setup nonce already seen in an earlier swap/) — ABORT: bob's setup nonce already seen in an earlier swap (reuse is fatal: refuse)
+  [ok] Bob echoes Alice's nonce as his own: rejected (reject /^ABORT: duplicate setup nonce/) — ABORT: duplicate setup nonce (both parties sent the same nonce)
+  [ok] Bob's proof made for Cardano network id 1 (mainnet), verified in a network-0 swap: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for another Zcash network: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different ADA amount: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different ZEC amount: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different T1: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different escrow script: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different Alice Cardano key: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made for a different go key: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made under Alice's role label: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob's proof made with the two parties' messages in swapped slots: rejects (reject /^ABORT: bob's DLEQ proof invalid \(ring\)$/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob mirrors Alice's own round-1 message + proof back as his: rejected (A == B) (reject /^ABORT: duplicate share point \(A == B\)$/) — ABORT: duplicate share point (A == B)
+  [ok] Bob's round-1 message claims the alice role: rejected (reject /^ABORT: bob's round-1 message carries role/) — ABORT: bob's round-1 message carries role String("alice")
+  [ok] sanity: the replayed proofs still verify in their own (old) swap (accept) — ce447d0bffef6923d1e4b8cc21b854bd94b3e980e4449e1816facc371b81cccd
+== l1: PASS (21/21 checks)
+== (a) happy path (two-step: Commit, then Reveal)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=8a30e16fb4c86fb30607e839e411f7df720c06834bdf31bc1237582fc978df8e
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Alice tries to take the ZEC with her share a only (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] Bob Commits with an empty go_sig: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] Ed25519S Signature should be 64 bytes but it was 0
+  [ok] Bob Commits with a go_sig over another outref: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Commit with upper bound after T1 (T1+60 s): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Commit with no upper bound: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Reveals b directly on the OPEN escrow (skipping Commit): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice Notices early (validFrom now < T1): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice submits a Notice valid only from T1 before T1: ledger rejects (reject /^OutsideValidityInterval/) — OutsideValidityInterval: slot 80 < validFrom 440
+  [ok] Alice RefundReveals a on the Open escrow (old one-step refund): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob Forfeits the Open escrow before T2: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob's first Commit broadcast is before LAST_COMMIT = T1 − 1 s − Mc (accept) — 209 s before LAST_COMMIT (chain time + drift)
+  [ok] Bob's Commit settles (≥ K) before T1 (accept) — 300 s before T1
+  [ok] the Commit carried no secret (neither a nor b in any broadcast redeemer) (accept) 
+  [ok] Claimed UTxO = output of Bob's own Commit, same script address, same value, phase-1 datum (byte-equal) (accept) 
+  [ok] Bob Reveals a wrong b (b+1) on the Claimed UTxO: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] a third party (Alice's key) front-runs the Reveal with b: script rejects (Bob's signature required) (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Commit replayed on the Claimed UTxO (same go_sig): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice Escapes before T3: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob's Reveal settles (no deadline; here before T1) (accept) — 240 s before T1
+  [ok] Alice extracts b from the Reveal; b·G(Pallas) = Bob's DLEQ point (accept) 
+  [ok] Alice sweeps with a wrong share (b+1): her tool refuses (reject /sweeper refused: REFUSE/) — sweeper refused: REFUSE: revealed share does not match counterparty's public share
+  [ok] Alice forces a sweep signed with a wrong share: node rejects (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] sweep without ỹ-negation: node rejects (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] sweep signature over a different sighash: node rejects (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] sweep with tampered Halo2 proof: node rejects (reject /proof_ok=false/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=false (PostNu6_3 VK), bad spend-auth sigs at actions [], binding_ok=true)
+  [ok] Bob tries to take the ZEC back with b only (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)
+  [ok] alternative joint signature on the sweep verifies (not mined) (accept) 
+  [ok] alternative adaptor signature on the sweep verifies (not mined) (accept) 
+  [ok] Alice's real Orchard sweep with σ(a+b) accepted; expiry_height = tip+40 (accept) — expiry 93
+  [ok] a second, different spend of the swept joint note (double spend): node rejects (reject /nullifier/) — nullifier already spent (double spend)
+  [ok] Alice tries to Refund after Bob committed (Open escrow already spent) (reject /^BadInputsUTxO/) — BadInputsUTxO: input 88376518c78e0bdb8decf5f67514931b25e3b650a2feb28df41580b0dda380480 missing or spent
+  [ok] final: Alice holds the ZEC (accept) — 49990000 zats
+  [ok] final: Bob holds the ADA (accept) — 1299.381646 ADA
+== happy: PASS (38/38 checks)
+== (b) two-step refund path (Bob never commits): Notice (no secret) → RefundReveal{a} (no deadline)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=457f25b19ce6439d72e877e4c928afb9dd17e185b6b4b82e2b4c00d8642a2c6c
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's own tool refuses a first Commit after LAST_COMMIT (it might not be included before T1) (reject) — REFUSE: past LAST_COMMIT (a Commit broadcast now might not be included before T1) (Bob's chain-time estimate 31 s past it)
+  [ok] Alice Notices before T1: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice RefundReveals a on the OPEN escrow (step-7 one-step refund): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob Commits at/after T1 (TTL T1−1 s): ledger rejects (reject /^OutsideValidityInterval/) — OutsideValidityInterval: slot 440 >= ttl 439
+  [ok] Bob Commits after T1 with a later upper bound: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Reveals b on the Open escrow after T1: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob Notices between T1 and T2: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Forfeits an Open escrow (datum t4 = 0): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice Notices with a t4 one second short: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice Notices with a 6 h + 1 s validity range (pushes t4 out): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice Notices but skims 1 ADA from the continuing output: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice's Notice (no secret) settles from T1; Refunding output has t4 = upper + tail (accept) — t4 − now = 1260 s
+  [ok] the Notice carried no secret (accept) 
+  [ok] Bob Commits on the Refunding UTxO (with Alice's go): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob Forfeits before t4: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice re-Notices the Refunding UTxO (to extend t4): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice RefundReveals a wrong a (a+1): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice RefundReveals a + r (same BLS point, out of range): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice's RefundReveal settles (Notice was ≥ K deep; long before t4 − M) (accept) — 1200 s before t4
+  [ok] Bob extracts a from the RefundReveal; a·G(Pallas) = Alice's point (accept) 
+  [ok] Alice tries to keep the ZEC too, with a only (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)
+  [ok] Bob's Orchard sweep with σ(a+b) accepted (ZEC back) (accept) 
+  [ok] Bob Forfeits after t4 although Alice refunded (reject /^BadInputsUTxO/) — BadInputsUTxO: input d2c6bcf7d4c4a5d6a8dd7f947269f1a9956d6ae58db2df6fdeceee881d6994790 missing or spent
+  [ok] final: Bob holds his ZEC again (accept) — 99980000 zats
+  [ok] final: Alice holds her ADA again (accept) — 1999.210811 ADA
+== refund: PASS (30/30 checks)
+== (c) silent Alice (no go, no refund): Bob Notices at T2, Forfeits at t4 — Punish's replacement (D25)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=961bedc47d843bf9ab87abfdf7cc7d7fea3fc355494b39434a99bf45a77ace65
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Bob tries to take the ZEC back with b only (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)
+  [ok] without a valid go signature Bob's tool never commits (so never reveals b) (reject /^go_sig/) — go_sig R is small-order or not in the prime-order subgroup
+  [ok] Bob Notices after T1 but before T2: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob tries a RefundReveal with a guessed a on the Open escrow: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob submits a Notice valid from T2 before T2: ledger rejects (reject /^OutsideValidityInterval/) — OutsideValidityInterval: slot 445 < validFrom 700
+  [ok] a third party (neither key) Notices after T2: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Bob's Notice from T2 settles; it starts Alice's 7-day (sim 20 min) clock (accept) 
+  [ok] Alice stays silent: Bob's Forfeit settles at t4 (≥ his Notice + tail) (accept) — 1380 s after T2
+  [ok] Alice wakes up late and tries RefundReveal after the Forfeit (reject /^BadInputsUTxO/) — BadInputsUTxO: input 160c89addc8d4fd66c100e0822091b0f292c0b91925a472a3ffebd4f504c86d00 missing or spent
+  [ok] final: Bob holds the ADA (accept) 
+  [ok] final: the ZEC stays locked at the joint key (accepted trade-off); a was never broadcast (accept) — funded_ok
+== punish: PASS (14/14 checks)
+== setup-phase cheats
+  [ok] Bob publishes corrupted DLEQ proof: Alice aborts (reject /DLEQ proof invalid/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob publishes F7 shifted-points DLEQ: Alice aborts (reject /DLEQ proof invalid/) — ABORT: bob's DLEQ proof invalid (PoK dlog(P) fails)
+  [ok] Bob publishes BLS point not matching the Pallas point: Alice aborts (reject /DLEQ proof invalid/) — ABORT: bob's DLEQ proof invalid (sum D != Q)
+  [ok] Bob publishes DLEQ proof bound to the other role: Alice aborts (reject /DLEQ proof invalid/) — ABORT: bob's DLEQ proof invalid (ring)
+  [ok] Bob changes his key contribution after committing: Alice aborts (reject /does not match commitment/) — ABORT: bob's key-contribution reveal does not match commitment
+  [ok] datum B_c is not Bob's DLEQ point: Bob refuses to fund (reject /field b_c value differs/) — datum bytes differ from the expected canonical datum: field b_c value differs from the agreed one
+  [ok] wrong T2: Bob refuses to fund (reject /field t2 value differs/) — datum bytes differ from the expected canonical datum: field t2 value differs from the agreed one
+  [ok] wrong T3: Bob refuses to fund (reject /field t3 value differs/) — datum bytes differ from the expected canonical datum: field t3 value differs from the agreed one
+  [ok] lock already in phase 1 (Claimed, Refund disabled): Bob refuses to fund (reject /field phase value differs/) — datum bytes differ from the expected canonical datum: field phase value differs from the agreed one
+  [ok] datum go key ≠ the one agreed: Bob refuses to fund (reject /field go_vk value differs/) — datum bytes differ from the expected canonical datum: field go_vk value differs from the agreed one
+  [ok] datum network id = mainnet in a testnet swap: Bob refuses to fund (reject /field network_id value differs/) — datum bytes differ from the expected canonical datum: field network_id value differs from the agreed one
+  [ok] datum swap id ≠ H(setup transcript): Bob refuses to fund (reject /field swap_id value differs/) — datum bytes differ from the expected canonical datum: field swap_id value differs from the agreed one
+  [ok] lock only 1 confirmation deep: Bob waits (does not fund) (reject /not settled/) — lock not settled (1 < 3 confirmations)
+  [ok] Bob funds less ZEC than agreed: Alice withholds go (reject /wrong_amount/) — ZEC not final on the live chain (wrong_amount, tip 52)
+  [ok] ZEC funding at depth 1 < Z: Alice withholds go (reject /too_shallow/) — ZEC not final on the live chain (too_shallow, tip 50)
+  [ok] ZEC final but now > T0: Alice withholds go (then refunds at T1) (reject /past T0/) — past T0: too late to give go
+  [ok] Alice sends a go signature over the wrong amount: Bob's tool refuses before revealing b (reject /does not verify/) — go_sig does not verify for this escrow
+== setup: PASS (17/17 checks)
+== C-1 reproduction (fee change while the Commit is held, and again after b is public)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=085ab1ae318864558724ca501978b298c81b079c4c88cb547f42b9f0f743cedb
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's first Commit is DROPPED at block time by the fee change (accept) — FeeTooSmall: 320107 < 562491
+  [ok] Bob rebuilds his Commit with the SAME go_sig; it settles before T1 (no secret was exposed meanwhile) (accept) — commit builds 2
+  [ok] Alice swept the ZEC with b read from the held Reveal (the attack's first half succeeds) (accept) 
+  [ok] Bob's first Reveal is DROPPED at block time by the fee change (accept) — FeeTooSmall: 524175 < 875327
+  [ok] Bob rebuilds + re-signs his Reveal; it settles (no deadline: C-1 fixed by construction) (accept) — reveal builds 2, -80 s relative to T1
+  [ok] Alice then tries to Refund at T1 (reject /^BadInputsUTxO/) — BadInputsUTxO: input 62b581a966afce000a4184a9da4ea708b0a9857a2b90bd6d9bc124d33e5555c00 missing or spent
+  [ok] final: Bob holds the ADA (honest Bob NOT harmed) (accept) 
+== c1fee: PASS (12/12 checks)
+== C-1 reproduction (costmodel change while the Commit is held, and again after b is public)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=0f4cf3aba76b55f28ac419797efa5d0fab0ec4fe10fadf6e8b22fcf614e03b51
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's first Commit is DROPPED at block time by the costmodel change (accept) — PPViewHashesDontMatch (script_data_hash)
+  [ok] Bob rebuilds his Commit with the SAME go_sig; it settles before T1 (no secret was exposed meanwhile) (accept) — commit builds 2
+  [ok] Alice swept the ZEC with b read from the held Reveal (the attack's first half succeeds) (accept) 
+  [ok] Bob's first Reveal is DROPPED at block time by the costmodel change (accept) — PPViewHashesDontMatch (script_data_hash)
+  [ok] Bob rebuilds + re-signs his Reveal; it settles (no deadline: C-1 fixed by construction) (accept) — reveal builds 2, -80 s relative to T1
+  [ok] Alice then tries to Refund at T1 (reject /^BadInputsUTxO/) — BadInputsUTxO: input f9820a4fab30a361a390c42f6769da017471888b57a5a9b5f76a67509bfbe5650 missing or spent
+  [ok] final: Bob holds the ADA (honest Bob NOT harmed) (accept) 
+== c1cost: PASS (12/12 checks)
+== C2 reproduction (expired tx must not confirm)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=b64040a22b7def64e140b055f4e7eaa45e0d0d2f8afe5d89d6e37edf75bbde77
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] tx held past its TTL is DROPPED at block time, never confirmed (accept) — OutsideValidityInterval: slot 140 >= ttl 105
+  [ok] escrow still unspent (accept) 
+  [ok] Bob simply rebuilds the Commit with a fresh TTL (no new go needed); Commit settles before T1, Reveal settles (accept) — 180 s before T1
+== c2: PASS (8/8 checks)
+== C3 reproduction (Alice's other inputs)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=71132a5d75873f57579ec01d5b9c9a111067d392ffc05ffe55c31e9aa701e719
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit also spending Alice's base-address UTxO: no Alice witness exists → ledger rejects (reject /MissingVKeyWitnesses/) — MissingVKeyWitnessesUTXOW: Missing vkey witness. Key hash: 4a21719b5425fa6b577a392e5739e02553e623b80fcdefbedfdcc76d
+  [ok] Alice's go step produces only a 64-byte signature over the 129-byte go message (nothing that can authorise a tx) (accept) 
+  [ok] the go signature is not a valid tx witness for Alice's key either (Bob attaches it as one) (reject /InvalidWitnesses|MissingVKeyWitnesses|ScriptFailure|Extraneous/) — InvalidWitnessesUTXOW: Invalid vkey witness. Key hash: 43cde96b1117edab3c5457e19fb677e8dbcfb2776b5d9b47626d7998
+== c3: PASS (8/8 checks)
+== H-1: Cardano rollback of the Commit and of the Reveal
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=1c663c905462c353ad7db07114021f1247999e4fb856d3be342f06ffedfe4922
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] honest Bob: his Commit is rolled back 2 blocks, returns to the pool, re-confirms and settles before T1 (accept) — slot 120: ROLLBACK 2 block(s), orphaned [commit#1]; slot 220: ROLLBACK 2 block(s), orphaned [reveal#1]
+  [ok] his Reveal is rolled back 2 blocks, re-confirms and settles (accept) 
+  [ok] Alice's Refund at T1 fails (reject /^BadInputsUTxO/) — BadInputsUTxO: input 86b768fb78f206fab4f0a886cb5ea51b9833bd2e782948a36b1bdd1eaa3426b50 missing or spent
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=f85d6311ae87c80f89f168317bbe32e95b171fba78aa3f9321c0ba9febbc4676
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] step-6 CONTROL re-run (late Commit 30 s before T1, rolled back after T1): Commit dropped, Bob's wallet never reveals b, Alice refunds, Bob recovers his ZEC → NO loss now (LAST_COMMIT is a liveness rule only) (accept (no loss)) — REFUSE: Commit not settled (0 < 3 confirmations): do not reveal b; slot 440: ROLLBACK 2 block(s), orphaned [commit#1]; slot 460: DROPPED commit#1: Out
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=85337a4b251a72ffde3a4487044d29285ecc528bf69d54aa1e0ff4a1679c39f7
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] CONTROL (rule broken: Reveal before the Commit is K deep): rollback after T1 drops both, Alice sweeps the ZEC with b AND refunds → shows the 'reveal only after K' rule is necessary (accept (expected loss)) — rolled back 2; BadInputsUTxO: input a20ebef9529ce1ecdbe87636be8c62d8df29bd1
+== rbredeem: PASS (20/20 checks)
+== H-1 (step 8): rollbacks of BOTH refund steps (+ a fee change mid-Notice); CONTROL for the t4 − M margin
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=824dc91d3729512d1b0f69b1002c970b2d87d9e61f281e66f24f49f2fb58eac6
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Notice dropped by a fee change, rebuilt, rolled back 2 blocks, re-confirmed; a revealed only after it was K deep (accept) — notice builds 2; slot 460: PARAM CHANGE; slot 480: ROLLBACK 2 block(s), orphaned [notice#1]; slot 500: DROPPED notice#1: FeeTooSmall: 312680 < 552644;
+  [ok] RefundReveal rolled back 2 blocks, re-included from the pool; settles long before t4 (accept) — 1159 s before t4
+  [ok] Bob's Forfeit at t4 fails (Refunding UTxO already spent) (reject /^BadInputsUTxO/) — BadInputsUTxO: input ad698d6820321b3149aef5c5d269722d2a6a063b6e557b47050d8efda9a402360 missing or spent
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=69d68f40cb6b57363cae5143a2c56d99e3779ef1922f786816955648595be5ea
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] CONTROL (rule broken: RefundReveal 30 s before t4): rollback after t4 + Forfeit → Alice loses ADA and a is public → shows the t4 − M margin is necessary (accept (expected loss)) — reveal had 2 conf when rolled back
+== rbrefund: PASS (14/14 checks)
+== H-2: Zcash reorgs and the live depth check
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=a3c1fe786396e6c99f021508619795bca1caad9a1b7e1aabe1b2bb775f635e4f
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] after the reorg Bob double-spends his funding input; the orphaned funding tx can't be re-mined (reject /nullifier/) — nullifier already spent (double spend)
+  [ok] Alice's go re-checks the LIVE chain: note gone → no go (b never needed) (reject /not_found/) — ZEC not final on the live chain (not_found, tip 53)
+  [ok] Alice refunds at T1 and settles before T2: nobody loses (accept) 
+  [ok] stale-file test: note was at depth Z (file saved), then a reorg + double spend; go re-checks live chain and refuses; stale file deleted (reject /not_found/) — ZEC not final on the live chain (not_found, tip 50)
+  [ok] a 1-block reorg above a note at depth Z+1 leaves it at depth Z: go still given (accept) — funded_ok
+== zreorg: PASS (8/8 checks)
+== M-3: Zcash expiry heights
+  [ok] wallet-default fund tx carries expiry_height = target height (tip+1) + 40 (ZIP 203, pre-NU7 era) (accept) — tip 1, expiry 42
+  [ok] tx with expiry tip+1 submitted after 1 more block: node rejects (TxExpired) (reject /TxExpired/) — TxExpired: next block height 3 > expiry_height 2
+  [ok] expiry 0 (step-2 fingerprint) is refused by the step-3 node policy (reject /ExpiryZero/) — ExpiryZero: wallet-default txs set expiry_height = target + 40 (pre-NU7) / + 120 (NU7)
+  [ok] the tip+40 tx is still accepted (accept) 
+== zexpiry: PASS (4/4 checks)
+== go-message attacks on the strict ledger (field-isolated, real keys)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=f77b387a2800d5028a078fcc8aac2f61153929b77b9bfb245479c65349090c03
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=da7c252668f8366376b6e4b39f50fae40b242d3c07a8bf31bc3a0adf1918d1a2
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] go_sig from swap 1 (its own key + escrow) replayed on swap 2: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY network id 1 (mainnet) changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY signing domain v0 changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY T1 + 1 ms changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY output index + 1 changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY swap id of another swap changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY lovelace − 1 changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] real go key, ONLY escrow txid of swap 1 changed in the go message: script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] malleated go_sig (S + ℓ, non-canonical): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] malleated go_sig: Bob's own strict check names the reason (reject /S ≥ ℓ/) — go_sig S ≥ ℓ (non-canonical / malleated)
+  [ok] front-runner copies go_sig from Bob's Commit in the mempool, signs as itself: script rejects (Bob's signature required) (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] front-runner Commit that sends the continuing output to a different address (its own key): script rejects (reject /^ScriptFailure \(phase 2\): /) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] positive control: real key, unchanged go message: Commit accepted by script + strict overlay (accept) — ACCEPTED 69175967
+== gomsg: PASS (23/23 checks)
+== F1: Bob refuses any lock whose datum is not byte-identical to the canonical agreed datum
+  [ok] builder sanity: hand-built canonical CBOR == Plutus Data.to bytes (accept) — d8799f581c8d616f112a37bd…
+  [ok] control: honest canonical lock is accepted (accept) 
+  [ok] datum t2 encoded as bytes (review2 dtype/hostage): Bob refuses to fund (reject /datum bytes differ.*field t2 has wrong type \(bytes, expected int\)/) — datum bytes differ from the expected canonical datum: field t2 has wrong type (bytes, expected int) [ledger stored 267 B verbatim]
+  [ok] datum t1 encoded as bytes: Bob refuses to fund (reject /datum bytes differ.*field t1 has wrong type \(bytes, expected int\)/) — datum bytes differ from the expected canonical datum: field t1 has wrong type (bytes, expected int) [ledger stored 255 B verbatim]
+  [ok] datum t3 encoded as bytes: Bob refuses to fund (reject /datum bytes differ.*field t3 has wrong type \(bytes, expected int\)/) — datum bytes differ from the expected canonical datum: field t3 has wrong type (bytes, expected int) [ledger stored 255 B verbatim]
+  [ok] datum phase encoded as bytes: Bob refuses to fund (reject /datum bytes differ.*field phase has wrong type \(bytes, expected int\)/) — datum bytes differ from the expected canonical datum: field phase has wrong type (bytes, expected int) [ledger stored 263 B verbatim]
+  [ok] datum network_id encoded as bytes: Bob refuses to fund (reject /datum bytes differ.*field network_id has wrong type \(bytes, expected int\)/) — datum bytes differ from the expected canonical datum: field network_id has wrong type (bytes, expected int) [ledger stored 263 B verbatim]
+  [ok] datum a_c encoded as an int: Bob refuses to fund (reject /datum bytes differ.*field a_c has wrong type \(int, expected bytes\)/) — datum bytes differ from the expected canonical datum: field a_c has wrong type (int, expected bytes) [ledger stored 213 B verbatim]
+  [ok] datum constructor tag 1 instead of 0: Bob refuses to fund (reject /datum bytes differ.*wrong constructor tag 1/) — datum bytes differ from the expected canonical datum: wrong constructor tag 1 (expected 0) [ledger stored 262 B verbatim]
+  [ok] datum extra 13th field: Bob refuses to fund (reject /datum bytes differ.*wrong field count 13/) — datum bytes differ from the expected canonical datum: wrong field count 13 (expected 12) [ledger stored 263 B verbatim]
+  [ok] datum missing phase (10 fields, the step-6 layout + t3): Bob refuses to fund (reject /datum bytes differ.*wrong field count 10/) — datum bytes differ from the expected canonical datum: wrong field count 10 (expected 12) [ledger stored 260 B verbatim]
+  [ok] datum step-6 9-field datum (no t3, no phase): Bob refuses to fund (reject /datum bytes differ.*wrong field count 9/) — datum bytes differ from the expected canonical datum: wrong field count 9 (expected 12) [ledger stored 251 B verbatim]
+  [ok] datum same values, definite-length list: Bob refuses to fund (reject /datum bytes differ.*non-canonical CBOR encoding/) — datum bytes differ from the expected canonical datum: non-canonical CBOR encoding of the agreed values [ledger stored 261 B verbatim]
+  [ok] datum same values, network_id as a 2-byte (non-minimal) int: Bob refuses to fund (reject /datum bytes differ.*non-canonical CBOR encoding/) — datum bytes differ from the expected canonical datum: non-canonical CBOR encoding of the agreed values [ledger stored 264 B verbatim]
+  [ok] datum same values, t2 as a CBOR bignum (tag 2): Bob refuses to fund (reject /datum bytes differ.*non-canonical CBOR encoding/) — datum bytes differ from the expected canonical datum: non-canonical CBOR encoding of the agreed values [ledger stored 261 B verbatim]
+  [ok] datum t2 = 2^70 (big int): Bob refuses to fund (reject /datum bytes differ.*field t2 value differs/) — datum bytes differ from the expected canonical datum: field t2 value differs from the agreed one [ledger stored 264 B verbatim]
+  [ok] datum t2 = −1: Bob refuses to fund (reject /datum bytes differ.*field t2 value differs/) — datum bytes differ from the expected canonical datum: field t2 value differs from the agreed one [ledger stored 254 B verbatim]
+  [ok] datum t3 = T1 (Escape right after T1): Bob refuses to fund (reject /datum bytes differ.*field t3 value differs/) — datum bytes differ from the expected canonical datum: field t3 value differs from the agreed one [ledger stored 262 B verbatim]
+  [ok] datum phase = 1 (already Claimed: Refund disabled): Bob refuses to fund (reject /datum bytes differ.*field phase value differs/) — datum bytes differ from the expected canonical datum: field phase value differs from the agreed one [ledger stored 262 B verbatim]
+  [ok] datum phase = 2 (unknown phase): Bob refuses to fund (reject /datum bytes differ.*field phase value differs/) — datum bytes differ from the expected canonical datum: field phase value differs from the agreed one [ledger stored 262 B verbatim]
+  [ok] datum go_vk of 33 bytes: Bob refuses to fund (reject /datum bytes differ.*field go_vk value differs/) — datum bytes differ from the expected canonical datum: field go_vk value differs from the agreed one [ledger stored 263 B verbatim]
+  [ok] canonical datum but attached as a datum HASH: Bob refuses (reject /datum is a hash, not inline/) — datum is a hash, not inline
+  [ok] right script, but Alice's stake credential on the escrow address: Bob refuses (reject /stake credential not agreed/) — stake credential not agreed (escrow address must carry no stake credential)
+  [ok] canonical datum, 1 lovelace short: Bob refuses (reject /wrong ADA amount/) — wrong ADA amount / extra assets
+== f1: PASS (24/24 checks)
+== hostage (review2) re-run: Bob must refuse to fund
+  [ok] t2-as-bytes lock (Bob's Notice impossible): Bob refuses to fund ZEC (reject /field t2 has wrong type/) — datum bytes differ from the expected canonical datum: field t2 has wrong type (bytes, expected int)
+  [ok] Bob's ZEC never left his wallet (no funding tx exists) (accept) — no ZEC chain started
+== hostage: PASS (2/2 checks)
+== F2: forged go signatures and bad go keys
+  [ok] valid (prime-order) go key: setup accepted (accept) 
+  [ok] go_sig with R = identity (small order): Bob's strict check refuses before committing (reject /R is small-order/) — go_sig R is small-order or not in the prime-order subgroup
+  [ok] (observe) the local UPLC evaluator ALONE accepts this signature — why the strict node-equivalent check is required (observe) — ACCEPTED 9428bd02
+  [ok] same Commit on the strict ledger (node Ed25519 = libsodium): rejected (reject /node Ed25519 builtin = libsodium/) — ScriptFailure (phase 2, node Ed25519 builtin = libsodium): verifyEd25519Signature(go_vk, go_msg, go_sig) = False
+  [ok] go_vk = identity point (review2 gokey): Alice refuses at setup (reject /go key .*identity/) — ABORT: alice refuses the agreed parameters: go key is the identity point
+  [ok] go_vk = identity point: Bob refuses at setup (reject /go key .*identity/) — ABORT: bob refuses the agreed parameters: go key is the identity point
+  [ok] (observe) OpenSSL alone on the identity-key forgery (R=[7]B, S=7, random message) (observe) — openssl=false
+  [ok] (observe) setup check bypassed, identity go key on chain: the local UPLC evaluator alone accepts the forged go (review2 result) (observe) — ACCEPTED 67871002
+  [ok] same forged Commit on the strict ledger: rejected (reject /node Ed25519 builtin = libsodium/) — ScriptFailure (phase 2, node Ed25519 builtin = libsodium): verifyEd25519Signature(go_vk, go_msg, go_sig) = False
+  [ok] same forgery: Bob's strict go check refuses (reject /go key|small-order|disagree|does not verify/) — go key is the identity point
+  [ok] same forgery: node-equivalent libsodium verify refuses (reject) — libsodium=false
+  [ok] go_vk = order-2 point (y = −1): refused at setup (reject /small-order|not in the prime-order subgroup/) — go key is small-order, not on the curve, or not in the prime-order subgroup
+  [ok] go_vk = non-canonical encoding of the identity (y = p+1): refused at setup (reject /non-canonical/) — go key is a non-canonical encoding (y ≥ p)
+  [ok] go_vk = honest key + order-2 component (mixed order): refused at setup (reject /not in the prime-order subgroup/) — go key is small-order, not on the curve, or not in the prime-order subgroup
+  [ok] go_vk = 32 bytes that are not a curve point: refused at setup (reject /not on the curve/) — go key is small-order, not on the curve, or not in the prime-order subgroup
+  [ok] go_vk = 31 bytes: refused at setup (reject /32 bytes/) — go key must be 32 bytes as lowercase hex
+  [ok] go_vk = upper-case hex: refused at setup (reject /lowercase hex/) — go key must be 32 bytes as lowercase hex
+  [ok] control: a fresh honest go key passes the same check (accept) 
+== f2: PASS (18/18 checks)
+== F3/F4: late go at T0, Bob's clock skew, timing rule with R
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=12c0480bb43ab67b23c81b7273c725e28fac3c5a572ec76f404b53ec8560d5cb
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives go at exactly T0 (latest allowed) (accept) — 0 s before T0
+  [ok] slack after a go at T0: LAST_COMMIT − T0 = 79 s ≥ R (60 s) (accept) — 79 s
+  [ok] Bob commits after a go at T0 (settles before T1), then reveals (accept) — 80 s before T1
+  [ok] Alice still sweeps the ZEC (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=6c1efed20018902fc565100a6d8cc4e0df694bd783d49609f511cf81ab8d4b93
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] (control) a wall-clock-only rule would let a 120 s-slow Bob commit now (observe) — Bob's wall clock 110 s before LAST
+  [ok] Bob's clock 120 s slow, true time LAST+10 s: chain-time rule refuses (uses max(own clock, tip time) + drift) (reject /past LAST/) — REFUSE: past LAST_COMMIT (a Commit broadcast now might not be included before T1) (Bob's chain-time estimate 31 s past it)
+  [ok] Alice refunds; Bob keeps his ZEC (nothing revealed) (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=bb36618a646da8c0066ff22a6d6799ac8c81bb2f8290cd129df19aaa5770a5dc
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Bob's clock 120 s fast, go at T0: he refuses early (liveness cost only, fails safe) (reject /past LAST/) — REFUSE: past LAST_COMMIT (a Commit broadcast now might not be included before T1) (Bob's chain-time estimate 71 s past it)
+  [ok] Alice refunds; Bob keeps his ZEC (accept) 
+  [ok] params with T1 = T0+1+Mc (no slack R): refused at setup (reject /timing rule/) — params violate the timing rule (T1 ≥ T0+1+Mc+R, T2 ≥ T1+S+1+R+Mc, T3 ≥ T1+T3min)
+  [ok] params exactly at T1 = T0+1+Mc+R, T2 = T1+S+1+R+M, T3 = T1+T3min: accepted (accept) 
+  [ok] T2 = T1+1+R+Mc (no S: Bob could Notice before Alice's own T1 Notice is settled): refused (reject /T2 ≥ T1+S+1+R+Mc/) — params violate the timing rule (T1 ≥ T0+1+Mc+R, T2 ≥ T1+S+1+R+Mc, T3 ≥ T1+T3min)
+  [ok] T3 < T1 + T3min: refused (reject /timing rule/) — params violate the timing rule (T1 ≥ T0+1+Mc+R, T2 ≥ T1+S+1+R+Mc, T3 ≥ T1+T3min)
+  [ok] t3 missing: refused (fail closed) (reject /t3 must be/) — t3 must be a non-negative integer
+== timing: PASS (25/25 checks)
+== F7: seen registry canonicalises, non-canonical points rejected
+  [ok] first swap: setup accepted (accept) 
+  [ok] control: Bob re-uses his old share (lower-case): rejected as already seen (reject /already seen/) — ABORT: bob's share point P already seen in an earlier swap (reuse is fatal: refuse)
+  [ok] review2 bypass: same reuse in UPPER-case hex: now rejected as already seen (reject /already seen/) — ABORT: bob's share point P already seen in an earlier swap (reuse is fatal: refuse)
+  [ok] Bob mirrors Alice's points in upper-case: rejected (reject /duplicate share point/) — ABORT: duplicate share point (A == B)
+  [ok] Bob publishes Pallas P with x + p (non-canonical field element): Alice aborts (reject /P is (a non-canonical encoding|not a valid Pallas point encoding)/) — ABORT: bob's P is not a valid Pallas point encoding
+  [ok] Bob publishes Pallas P = identity (all zero): Alice aborts (reject /P is (the identity|a non-canonical|not a valid)/) — ABORT: bob's P is the identity
+  [ok] Bob publishes BLS Q with the compression flag cleared: Alice aborts (reject /Q is not a valid BLS12-381 G1 subgroup point|non-canonical/) — ABORT: bob's Q is not a valid BLS12-381 G1 subgroup point
+  [ok] Bob publishes BLS Q = point at infinity: Alice aborts (reject /Q is the identity|identity/) — ABORT: bob's Q is the identity
+== seenhex: PASS (8/8 checks)
+== value cap (step 7: live feed prices, fail closed; q_eff with stales, pool-share gate, staleness, exposure)
+  [ok] default swap ($627 at feed prices) at K=15, Z=69 post-NU7: accepted (accept) 
+  [ok] step-5 depth Z=60 refused (needs 69 for ε=1e-3 at q=0.35 with 5% stales) (reject /Z=60 < 69/) — ABORT: alice refuses the agreed parameters: REFUSE: Z=60 < 69 needed for ε=0.001 at q_eff=0.3618 (q=0.35, stale=0.05)
+  [ok] Z=64 (enough only at 3.26% stales) refused at the 5% stale assumption (reject /< 69/) — REFUSE: Z=64 < 69 needed for ε=0.001 at q_eff=0.3618 (q=0.35, stale=0.05)
+  [ok] 20 ZEC ($25091 at feed prices) above the $15,000 v1 cap: both refuse (reject /above the v1 cap/) — ABORT: alice refuses the agreed parameters: REFUSE: $25091 above the v1 cap $15000 (live feed prices)
+  [ok] review4 F3: the SAME 0.5 ZEC swap with the feed's ZEC price ×30 is refused (the cap follows the live feed, not constants) (reject /above the v1 cap/) — REFUSE: $18818 above the v1 cap $15000 (live feed prices)
+  [ok] setup with feed missing: refused (fail closed) (reject /no pool-share/) — REFUSE: no pool-share/price feed (fail closed)
+  [ok] setup with ZEC price NaN: refused (fail closed) (reject /ZEC\/USD price/) — REFUSE: feed ZEC/USD price missing or invalid
+  [ok] setup with ADA price negative: refused (fail closed) (reject /ADA\/USD price/) — REFUSE: feed ADA/USD price missing or invalid
+  [ok] setup with feed dated 2 h in the future: refused (fail closed) (reject /in the future/) — REFUSE: feed dated 2.0 h in the future (clock or feed error)
+  [ok] setup with feed 25 h old: refused (fail closed) (reject /h old/) — REFUSE: pool-share/price data is 25.0 h old (> 24 h)
+  [ok] setup with feed without a date: refused (fail closed) (reject /no valid date/) — REFUSE: feed has no valid date (fail closed)
+  [ok] review4 F5: scheduled-upgrade list missing: refused (reject /upgrade list missing/) — REFUSE: scheduled-upgrade list missing (fail closed)
+  [ok] review4 F5: a scheduled upgrade 1 h ahead: refused (reject /upgrade blackout/) — REFUSE: upgrade blackout — Cardano hard fork (test) within 24 h of the swap window
+  [ok] exposure counter invalid (−1): refused (reject /exposure counter missing or invalid/) — REFUSE: exposure counter missing or invalid
+  [ok] control: same params with the honest feed and an empty upgrade list: accepted (accept) 
+  [ok] $14,999 at Z=69 with largest pool 33%: accepted (accept) 
+  [ok] largest pool 36% > 35%: refused (reject /largest mining pool/) — REFUSE: largest mining pool 36.0% > 35%
+  [ok] top-2 pools 51% > 50%: refused (reject /top-2/) — REFUSE: top-2 mining pools 51.0% > 50%
+  [ok] malformed feed (shares sum > 1): refused (reject /malformed/) — REFUSE: malformed pool-share feed
+  [ok] 11th swap with the same counterparty (exposure counter 10): refused (reject /exposure/) — REFUSE: lifetime exposure counter for this counterparty reached 10 swaps
+  [ok] rehearsal tier: $501 refused ($500 cap) (reject /above the rehearsal cap/) — REFUSE: $501 above the rehearsal cap $500 (live feed prices)
+  [ok] rehearsal tier: $313 at K=15, Z=10 (NU6.3 era, 75 s): accepted (accept) 
+  [ok] Cardano depth K=10 below the K=15 floor: refused (reject /depth below floor/) — REFUSE: depth below floor (K ≥ 15, Z ≥ 30)
+  [ok] model cross-check: minZ(q=0.35, ε=1e-3) = 58 / 65 / 69 at 0 / 3.26 / 5% stales (review3: 58 / 64 / 69) (observe) 
+== cap: PASS (24/24 checks)
+== R3-H1: NU7 activation — blackout, branch/version gate, measured spacing, rebuild across activation
+  [ok] NU7 activates within 24 h of the swap window (tip 1, NU7 at 1500): Bob refuses to fund (reject /blackout/) — REFUSE: NU7 blackout — activation at 1500 within the swap window to T3 + 24 h (tip 49, 28687 blocks)
+  [ok] NU7 at 31839 (> tip 49 + setup→T3+24 h at 25 s (28687 blocks) + 1,152 pre blocks): allowed (accept) 
+  [ok] step 9 (R5-L2): NU7 at 20,000 — outside the old T2+24 h window (4,003 blocks) but INSIDE setup→T3+24 h: refused (reject /NU7 blackout/) — REFUSE: NU7 blackout — activation at 20000 within the swap window to T3 + 24 h (tip 49, 28687 blocks)
+  [ok] after activation, params still agreed for NU6.3: refused by the branch check (reject /branch/) — REFUSE: agreed zec_branch 0x37a5165b disagrees with the node's era nu7
+  [ok] 148 blocks after activation, params agreed for NU7 (branch OK): the post-activation blackout (3,456 blocks) fires on its own (reject /NU7 blackout/) — REFUSE: NU7 blackout — activation at 100 within the swap window to T3 + 24 h (tip 248, 28687 blocks)
+  [ok] measured spacing 120 s over 48 blocks vs nominal 75 s (> 1.5×): refused, fail closed (reject /measured block spacing/) — REFUSE: measured block spacing 120.0 s > 1.5× 75 s (nominal for nu63, from the node)
+  [ok] measured spacing back to 80 s over the last 48 blocks (≤ 112.5 s): allowed (accept) 
+  [ok] review4 F4: only 12 blocks of history (< 48): refused, no nominal fallback (reject /measured over 12 blocks/) — REFUSE: block spacing measured over 12 blocks < 48
+  [ok] review4 F4: no block history at all (spacing 0, window 0): refused (reject /measured over 0 blocks/) — REFUSE: block spacing measured over 0 blocks < 48
+  [ok] wallet's node does not implement NU7: refused (minority-chain risk) (reject /does not implement NU7/) — REFUSE: node does not implement NU7 (or did not say so)
+  [ok] node did not say whether it implements NU7 (undefined): refused (reject /does not implement NU7/) — REFUSE: node does not implement NU7 (or did not say so) — it could follow a minority pre-NU7 chain
+  [ok] params agreed for NU7 but the node is still on NU6.3: refused (reject /branch/) — REFUSE: agreed zec_branch 0x77190ad9 disagrees with the node's era nu63
+  [ok] swap_id binds zec_branch (NU7 transcript differs from NU6.3 transcript) (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=0e9ce98bceb50ddd62f6c02846d44ee56517c439323f14f310bf199475f8c343
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Alice's sweep built pre-NU7 carries expiry capped at nu7_height − 1 (accept) — expiry 54, nu7 55
+  [ok] after activation the NU6.3-signed sweep is rejected (reject /wrong consensus branch|TxExpired/) — wrong consensus branch id 0x37a5165b: next block 56 requires 0x77190ad9 (Nu7)
+  [ok] rebuilt + re-signed under NU7 (+120 expiry): accepted (accept) — Nu7 expiry 176
+== nu7: PASS (21/21 checks)
+== R3-H2 (two-step): spam before the Commit — abort only; spam before the Reveal — Bob's gate holds, no deadline
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=56f9f8822ac8a3562611b25f834469b2ccdaa799ce3fadf82ae65ff85a18a59f
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] mempool full of spam: Bob's Commit is not admitted (no secret in it anyway) (accept) — Commit not admitted: MempoolFull (adversarial spam: the node refuses and does not relay)
+  [ok] spam lasts past LAST_COMMIT: Bob does not commit any more (reject /past LAST/) — REFUSE: past LAST_COMMIT (a Commit broadcast now might not be included before T1) (Bob's chain-time estimate 31 s past it)
+  [ok] b never appeared in any mempool or block (accept) 
+  [ok] attacker stops; Alice refunds (escrow still Open K blocks after T1; reveals a) (accept) 
+  [ok] Bob recovers his ZEC with a: nobody loses principal (griefing only) (accept) 
+  [ok] attacker's spam cost for this hold: 57.8 ADA (≈ $10.87) — 4.38 ADA per full block (observe) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=ce9567d24f354839835c7825f30285d75af8eddc1f8587709e051fb501715b3a
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [FAIL] Commit settled, then the mempool fills: Bob's reveal gate HOLDS b (before T3 − M) (reject /HOLD: own node's mempool/) — HOLD: mempool fill 100% (until at most 90 s more)
+  [ok] spam stops after T2 (all old deadlines gone): Bob reveals and settles; nothing was at risk meanwhile (accept) 
+  [ok] Alice sweeps the ZEC (accept) 
+== congestion: FAIL (18/19 checks)
+== R3-H2: spam AFTER the Reveal is admitted: FIFO, and there is no deadline anyway
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=92398be4b62cd5d765443629945baf7c6a289fa1019ea9d1006f4da9bb9547b7
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob reveals behind a 49% pre-fill; attacker then floods: the Reveal still settles (accept) 
+  [ok] Alice's Refund is refused by her own gate (escrow not Open) (reject /not Open/) — REFUSE: escrow not Open (committed, already noticed, spent or unknown)
+  [ok] spam spent 19.2 ADA for nothing (and the escrow ended Claimed→spent by Bob) (accept) — 19.18166288238525
+== congestion2: PASS (8/8 checks)
+== R3-H2 / review4 F1 re-run: producers censor Bob's admitted REVEAL past T1 and T2 — now SAFE
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=3205c85d39c56e03b9cc6aeb922c2de3737314a1367789ca2cf331babe2d60d3
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] during censorship, past T1: Alice's Refund{a} on the Claimed UTxO (the step-6 congestion3 theft): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice's Refund{a} on the (spent) Open escrow: ledger rejects (reject /^BadInputsUTxO/) — BadInputsUTxO: input 0146b347d7a6fff4ed6dd0566e0497f9159efcd95b9cc002f763c29614fb38130 missing or spent
+  [ok] Alice read b from the censored Reveal and sweeps the ZEC (her side of the trade) (observe) 
+  [ok] the censored Reveal settles once censorship lifts after T2: Bob gets the ADA — congestion3 is no longer a loss (accept) — settled 160 s after T2
+== congestion3: PASS (9/9 checks)
+== step 8: no refund deadline before Notice; RefundReveal only ≤ t4 − M; Bob's Notice only from T2
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=0ff5bba5f304b00b7fb1950c21f507078b0ce448c5bc9c8ebd5d5179df74b6f1
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Bob's wallet refuses a Notice before T2 (reject /before T2/) — REFUSE: before T2 (Alice has the first chance to Notice)
+  [ok] Alice starts her refund LATE (T2 + 300 s, Bob silent, no Notice yet): Notice + RefundReveal settle — no deadline on starting (accept) 
+  [ok] the Notice was Alice's own; t4 − (Notice upper) = the tail exactly (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=2cb51daee16f7f65902c64bdc589b005cb78368cfad327454886e134c3569ee2
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice's wallet refuses to reveal a after t4 − M (she lost track of time): a stays secret (reject /past t4/) — REFUSE: past t4 − M (a RefundReveal pending at t4 would hand a to Bob, who could Forfeit)
+  [ok] so Bob Forfeits at t4 (as if Alice were silent); the ZEC stays locked — the accepted 'Alice silent' outcome (accept) 
+== laterefund: PASS (11/11 checks)
+== R3-L1: lock output with a reference script
+  [ok] canonical datum + a reference script on the lock output: Bob refuses to fund (reject /reference script/) — lock output carries a reference script (2448 B): refuse (R3-L1, the full TxOut is pinned)
+== refscript: PASS (1/1 checks)
+== review4 F2: the option premium is REMOVED (code, spec, tests)
+  [ok] no premium gate, premium parameter or premium payment in e2e4.mjs, policy7.mjs or policy8.mjs (accept) 
+  [ok] policy7/policy8 export no premium symbol (accept) 
+  [ok] a swap with no premium payment at all is accepted by both wallets (accept) 
+== premium: PASS (3/3 checks)
+== Zcash sim node: NU6.3/NU7 consensus rules (zec/neg_tests.sh, fresh keys)
+  [ok] honest Ironwood->Ironwood v6 NU6.3 funding accepted (accept) 
+  [ok] Orchard cross-address transfer (v5, NU6.3 branch, enableCrossAddress proof) rejected (reject) 
+  [ok] library refuses to write Orchard cross-address flags into v6 (refuse) 
+  [ok] Orchard inflow (valueBalanceOrchard<0) rejected (reject) 
+  [ok] direct Orchard->Ironwood funding refused by wallet policy (refuse) 
+  [ok] forced Orchard->Ironwood turnstile crossing is consensus-valid (accept) 
+  [ok] Ironwood proof made with pre-NU6.3 (FixedPostNu6_2) key rejected (reject) 
+  [ok] NU7 branch id before NU7 activation rejected (reject) 
+  [ok] old-wallet v5 NU6.2 tx rejected after NU6.3 (reject) 
+  [ok] expiry_height 0 rejected (reject) 
+  [ok] tx expiring at tip rejected (TxExpired) (reject) 
+  [ok] post-NU7: honest v6 NU7 funding accepted (accept) 
+  [ok] post-NU7: NU6.3-branch tx rejected (reject) 
+  [ok] post-NU7: v4 transaction rejected (reject) 
+  [ok] expiry capped at nu7_height-1 for a pre-NU7 tx (accept) 
+  [ok] post-NU7 default expiry delta 120 / pre-NU7 40 (accept) 
+  [ok] pre-NU7 wallet-default sweep expiry is capped at nu7_height-1 (=69) (accept) 
+  [ok] NU6.3-signed sweep (forced expiry 200) rejected after NU7 activation (reject) 
+  [ok] NU6.3-signed sweep (default capped expiry) rejected after NU7 activation (reject) 
+  [ok] rebuilt sweep (NU7 branch, +120 expiry) accepted (accept) 
+  [ok] Ironwood sweep cheat one_share rejected (bad spend-auth sig) (reject) 
+  [ok] Ironwood sweep cheat wrong_share rejected (bad spend-auth sig) (reject) 
+  [ok] Ironwood sweep cheat no_negation rejected (bad spend-auth sig) (reject) 
+  [ok] Ironwood sweep cheat wrong_sighash rejected (bad spend-auth sig) (reject) 
+  [ok] Ironwood sweep with tampered proof rejected (reject) 
+  [ok] solo sweep with a wrong revealed share refused before signing (refuse) 
+  [ok] adaptor-completed Ironwood sweep accepted (accept) 
+  [ok] replay of the spent joint note rejected (double spend) (reject) 
+  [ok] Bob's balance has the swept note (Ironwood) (accept) 
+  [ok] use_qsk / ak normalisation selftest (accept) 
+== zecnode: PASS (30/30 checks)
+== step 8 griefing (e2e): Bob commits, stalls all the way to T3, Alice Escapes
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=5e3647b5ab7a0432d32079ea54dcda1f6a17b6756d07c18657188f046d0404b8
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit settles before T1, then Bob goes silent (no Reveal) (accept) 
+  [ok] Alice's wallet refuses a Notice: the escrow is Claimed, not Open (reject /not Open/) — REFUSE: escrow not Open (committed, already noticed, spent or unknown)
+  [ok] a forced Notice on the Claimed UTxO: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] RefundReveal{a} on the Claimed UTxO: script rejects (a is never needed) (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob's Notice from T2 on the Claimed UTxO: script rejects (no Forfeit path out of Claimed) (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice's Escape gate refuses before T3 (reject /before T3/) — REFUSE: before T3
+  [ok] Escape 30 s before T3: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] at T3: Alice's Escape gate passes (Claimed, b never seen) (accept) 
+  [ok] Alice's Escape settles at T3: ADA back to Alice (accept) 
+  [ok] a was never broadcast during the whole stall (accept) 
+  [ok] Bob cannot take his ZEC back (no a) (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] Bob's late Reveal after the Escape: input already spent (reject /^BadInputsUTxO/) — BadInputsUTxO: input f00bf8c9a658b22561e9a8591852083630b4c89cec6839f0f684dd2cc4a6cf0d0 missing or spent
+  [ok] final: Alice has her ADA back (net fees -999.712 ADA); her cost was the T3 − T1 wait (real 7 days) (accept) 
+  [ok] final: Bob's ZEC stays at the joint key — stalling costs the staller his whole side (dominated strategy) (accept) 
+== g8_stall_escape: PASS (19/19 checks)
+== step 8: refund-trap FORK test — Commit in a competing pre-T1 fork vs Alice's Notice/RefundReveal
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=2b9a5e8c891898c9238e19e4c60275847fe91a29134ed719d24166750a775c69
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] fork of depth 3 (Notice had 2 < K = 3 confirmations) branching before T1 includes the held Commit; Notice and RefundReveal are orphaned and dropped (observe) — orphaned [notice#1, refundreveal_early]
+  [ok] CONTROL (rule broken: a revealed on a 1-conf Notice): Bob sweeps the ZEC with a AND takes the ADA with Reveal{b} → Alice loses → the K-conf rule is necessary (accept (expected loss)) — node rejected: nullifier already spent (double spend)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=5be5036c6d2089d41e62dfee2d7c816ce4fed082ea9cdcb43947a21ff44154c1
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] the same fork (depth 2) arrives while Alice's Notice has 1 < K confirmations (observe) — notice#1
+  [ok] Alice's Notice procedure ends WITHOUT revealing a (escrow spent by the Commit in the winning fork) (accept) — escrow spent by someone else (e.g. a Commit won): nothing revealed
+  [ok] the swap simply completes: Bob's Commit (now K deep) → Reveal{b} settles (accept) 
+  [ok] Alice sweeps the ZEC with b: nobody loses (accept) 
+  [ok] the fork used here was 2 block(s) deep and Alice's Notice had < K confirmations when it hit (deeper-than-K forks: see r9_fork_multi) (accept) 
+== g8_refund_trap: PASS (17/17 checks)
+== step 8: Refund censored (was the step-7 open hole: censoring Alice's refund until Punish). Now safe.
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=49813dd55c54cd49613168f30abac7d2c00eb88e47b2398b1cc8a071a627efc0
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] while Alice's Notice is censored past T2: Bob cannot Commit (script) (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] … nor Forfeit the Open escrow (script) (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice's Notice censored from T1 to T2 + 600 s (rebuilt 2× as each TTL lapsed) then settles: no deadline was missed (accept) 
+  [ok] Alice reveals a and gets her ADA (accept) 
+  [ok] Bob gets his ZEC back: censorship cost only time (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=c514688eff9fae2fc12a420626e872f36f3a6ae66b2163a62c58955c242ec258
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice's Notice censored past T2; Bob's own Notice is included instead → Alice accepts the Refunding state it creates (same datum rule) (accept) — bobnotice#1
+  [ok] Alice reveals a long before t4 (t4 − now = 1200 s ≈ the full tail): ADA back (accept) 
+  [ok] honest Bob's Forfeit gate refuses after seeing a (he sweeps his ZEC instead) (reject /a was seen|not in the Refunding/) — REFUSE: escrow is not in the Refunding state
+== g8_refund_censored: PASS (14/14 checks)
+== step 8: censorship of BOTH refund steps (Notice, then RefundReveal{a})
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=bccb1304bfbbfa14693596d475a002c910e1ac6f835a0e64acb20c32116237d3
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Notice censored 300 s, then settles (accept) 
+  [ok] while the RefundReveal is censored: honest Bob's Forfeit gate refuses (before t4, and a seen) (reject) — REFUSE: before t4
+  [ok] … and a forced Forfeit before t4 fails in the script (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] RefundReveal censored for 819 s (most of the tail) then settles before t4: Alice safe (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=145b380354953b8a13d8a5639dedd1655b464daf59b51307c5c0682ccf4dcd28
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] CONTROL: RefundReveal censored for the whole tail (real 7 days) (observe) — gave up
+  [ok] CONTROL (residual R-1): a colluding Bob Forfeits at t4 AND sweeps the ZEC with a from the mempool → Alice loses → the only residual is ~100% stake censorship for the whole tail (accept (expected loss)) 
+== g8_censor_both: PASS (12/12 checks)
+== step 8 griefing: Alice Notices, then never reveals a → Bob Forfeits at t4
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=76d6f93f045b6f9944c5410a1513c80f5897bb67093a059f06d0be66a427939f
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice's Notice settles; she then goes silent (accept) 
+  [ok] Bob's Forfeit gate refuses before t4 (reject /before t4/) — REFUSE: before t4
+  [ok] Forfeit 60 s before t4: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] a third party Forfeits at t4 (not Bob): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob's Forfeit settles at t4: ADA to Bob (accept) 
+  [ok] Bob's total wait = t4 − T1 = 1320 s (sim; real ≈ Notice + 7 d): equals TAIL + Notice TTL bound (accept) — 1320000
+  [ok] final: ZEC stays at the joint key (Alice stalled after her own Notice — same outcome as the old Punish) (accept) 
+== g8_alice_stalls: PASS (10/10 checks)
+== step 8: Commit-vs-Notice races near T1 (the two are disjoint in time: Commit upper ≤ T1 − 1 s, Notice lower ≥ T1)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=e2c889b6504463a8e8ae2eb6fd4baf48ab967919539b5b843cec0a380c91b528
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit is held by producers until T1 (still pending at T1) (observe) — T1 reached before the Commit was included (abort: nothing revealed)
+  [ok] Bob's wallet refuses to reveal b (Commit not settled) (reject /not settled/) — REFUSE: Commit not settled (0 < 3 confirmations): do not reveal b
+  [ok] Alice's Notice at T1 first meets a mempool conflict, then the stale Commit is dropped (outside validity) and the Notice settles (accept) — OutsideValidityInterval: slot 440 >= ttl 439
+  [ok] refund completes and Bob takes his ZEC back; b never broadcast (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=a34af496fdba7bce90e39cf6015695875537c01af30aa13d6c6d2290a83727bd
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's last-moment Commit settles just before T1 (accept) — 120 s to T1
+  [ok] Alice's Notice gate refuses (escrow Claimed) (reject /not Open/) — REFUSE: escrow not Open (committed, already noticed, spent or unknown)
+  [ok] a forced Notice spending the (now spent) Open escrow: ledger rejects (reject /^BadInputsUTxO/) — BadInputsUTxO: input 57195733fae5f7a7922530623a9bc4ece7bd70e078109ecf6e7239eb0712b4770 missing or spent
+  [ok] swap completes normally (accept) 
+== g8_race: PASS (18/18 checks)
+== review4 two-phase: happy path (Commit, then Reveal; Alice sweeps with b from the Reveal)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=c7ab147c1c64be98fb68663789185258cfddc4c38d6811f2ee522448b35ced9b
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit (go_sig, no secret) settles before T1 (accept) 
+  [ok] Commit carried no secret: neither a nor b appears in any broadcast redeemer (accept) 
+  [ok] Claimed UTxO at the same script address with the same value and phase=1 datum (t4 = 0) (accept) 
+  [ok] Alice tries RefundReveal{a} on the Claimed UTxO at T1: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Bob's Reveal{b} settles (after T1: no deadline) (accept) 
+  [ok] Alice reads b from the Reveal (accept) 
+  [ok] Alice sweeps the ZEC with a+b (accept) 
+  [ok] Bob holds the ADA (+1299.381646 ADA balance) (accept) 
+== tp_happy: PASS (13/13 checks)
+== review4 two-phase: producers censor Bob's COMMIT until T1
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=966010fda8762414f6d364298f09741408af4dfcb4504ae41201a5d2ad094e0d
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit censored past T1: not included (observe) — T1 passed with the Commit still pending (it can no longer be included)
+  [ok] b was NEVER broadcast (Bob does not reveal before Commit settles) (accept) 
+  [ok] Alice refunds her ADA (Notice, then a) (accept) 
+  [ok] Alice cannot sweep the ZEC (she never learned b) (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [0], binding_ok=true)
+  [ok] Bob takes his ZEC back with a: censorship cost only liveness, no theft (accept) 
+== tp_censor_commit: PASS (10/10 checks)
+== review4 two-phase: producers censor Bob's REVEAL (b in the mempool) past T1 and T2
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=fbf3526bc4a5e03411f63f9ccd3098aa8261184e104688fdb47ee423ecd3e277
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit settles (accept) 
+  [ok] Alice reads b from the censored Reveal in the mempool (observe) 
+  [ok] Alice sweeps the ZEC (her side of the trade) (accept) 
+  [ok] Alice tries RefundReveal{a} at T1 on the Claimed UTxO: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice tries a Notice at T1 on the Claimed UTxO: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] Alice tries Escape at T2 (< T3): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[0] the validator crashed / exited prematurely
+  [ok] censorship lifted after T2: the SAME Reveal is still valid and settles; Bob gets the ADA (accept) — settled 640 s after T2
+== tp_censor_reveal: PASS (12/12 checks)
+== review4 two-phase: CONTROL — residual: censor the Reveal for the WHOLE window up to T3
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=28af732950b6c9ed222651979f2d19b4e88d4b479479281a636633c81ee34cee
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit settles (accept) 
+  [ok] CONTROL: only censorship lasting the whole T3 window (sim 20 min; real ≥ 7 days) lets Alice escape with the ADA too (observe) 
+== tp_censor_to_t3: PASS (7/7 checks)
+== review4 two-phase: Commit included, then rolled back after T1 (cannot re-enter)
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=4f2358fcb50f2428c2add60e79312bcc5d746c904aaac6aa64e3447f8ff75f72
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit was included, then orphaned after T1 and dropped on re-validation (outside validity interval) (observe) — OutsideValidityInterval: slot 460 >= ttl 439
+  [ok] Bob's wallet refuses to reveal b (Commit not settled) (accept) — REFUSE: Commit not settled (0 < 3 confirmations): do not reveal b
+  [ok] Alice refunds (Notice, then a) (accept) 
+  [ok] Bob recovers his ZEC: no loss (accept) 
+== tp_commit_rollback: PASS (9/9 checks)
+== review4 two-phase: Bob commits and never reveals → Alice escapes at T3 WITHOUT revealing a
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=a8224c1928dec55d1495c73dcb84e273405c969fb212608726973f535bea69f0
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit settles (accept) 
+  [ok] Alice's Escape (no secret) settles at T3: ADA back to Alice (accept) 
+  [ok] a was never broadcast (accept) 
+  [ok] Bob cannot recover his ZEC (he never learned a) (reject /bad spend-auth sigs/) — node rejected: Orchard-protocol verification failed (ironwood: proof_ok=true (PostNu6_3 VK), bad spend-auth sigs at actions [1], binding_ok=true)
+  [ok] Bob's late Reveal after the Escape: input already spent (reject /^BadInputsUTxO/) — BadInputsUTxO: input 2171be0808770aba80495bdbb689ef276ed357e8b1dec1ebc2a2baaa7b1506120 missing or spent
+== tp_bob_silent: PASS (10/10 checks)
+== review4 two-phase: Commit continuing-output attacks on the strict ledger
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=ffa911a5a203103c57e38395687280ed379b084c2bd0da6d9a68da5f540c81a2
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit whose output keeps phase=0 (re-openable): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Commit whose output moves T3 to T1 (early escape): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Commit whose output jumps to phase=2 Refunding with t4 set (Bob-made Refunding): script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Commit with an upper bound after T1: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] Commit with a go_sig over another outref: script rejects (reject /^ScriptFailure \(phase 2\)/) — ScriptFailure (phase 2): failed script execution Spend[1] the validator crashed / exited prematurely
+  [ok] positive control: honest Commit settles (accept) 
+== tp_commit_cheats: PASS (11/11 checks)
+== step 9 (R5-H1 port): HOLD capped → the short-censorship double-take FAILS
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=8c4137654615a978b4cd88d4825c709116ccc10ce4dd793d8fbd6b9b1ff29eef
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Commit settles (K deep) (accept) 
+  [ok] "unknown" probe HOLDs only 5 blocks, then GO-CAP ≤ hold cap (120 s) after the Commit settled — 1400 s before T3 (accept) — GO-CAP: hold cap 120 s after Commit settled reached (direct reach unknown): broadcast on every channel
+  [ok] attacker censors Bob's Reveal for the same 860 s budget review5 used: the Reveal still settles BEFORE T3 (accept) 
+  [ok] Alice sweeps the ZEC with b (normal completion) (accept) 
+  [ok] ATTACK FAILS: Alice's Escape at T3 cannot spend the escrow (already spent by Bob's Reveal) → Bob keeps the ADA (reject) — BadInputsUTxO: input 7e28412d18774f6808596756402b7d937d2219af1ac8b6364bbb8a197c8d059d0 missing or spent
+  [ok] real-profile scale: censorship needed ≥ tail − hold cap − settle ≈ 6.94 days (was ≈ 55 min) (accept) 
+== r9_hold_to_t3: PASS (11/11 checks)
+== step 9: HOLD conditions persist until T3 — cap, cutoff and race alarm
+  [ok] sim profile, probe unknown from Commit to T3: HOLD only within the cap (last HOLD at 115 s < 120 s); then GO-CAP → GO-LATE → GO-RACE; never a silent go or a REFUSE (accept) — HOLD,GO-CAP,GO-LATE,GO-RACE
+  [ok] real profile, probe unknown: last HOLD at 89 min, first broadcast at 90 min after settle (≤ 90 min; 6.94 d before T3) (accept) 
+  [ok] sim profile, mempool 100% (spam) from Commit to T3: HOLD only within the cap (last HOLD at 115 s < 120 s); then GO-CAP → GO-LATE → GO-RACE; never a silent go or a REFUSE (accept) — HOLD,GO-CAP,GO-LATE,GO-RACE
+  [ok] real profile, mempool 100% (spam): last HOLD at 89 min, first broadcast at 90 min after settle (≤ 90 min; 6.94 d before T3) (accept) 
+  [ok] sim profile, mempool fill unknown from Commit to T3: HOLD only within the cap (last HOLD at 115 s < 120 s); then GO-CAP → GO-LATE → GO-RACE; never a silent go or a REFUSE (accept) — HOLD,GO-CAP,GO-LATE,GO-RACE
+  [ok] real profile, mempool fill unknown: last HOLD at 89 min, first broadcast at 90 min after settle (≤ 90 min; 6.94 d before T3) (accept) 
+  [ok] unknown time/config inputs: treated as cap reached (GO-CAP), not hold-forever (accept) — GO-CAP: time/config inputs unknown — treated as hold cap reached (broadcast on every channel)
+  [ok] Commit not K deep: still REFUSE (the cap never overrides the settlement rule) (reject /not settled/) — REFUSE: Commit not settled (2 < 3 confirmations): do not reveal b
+  [ok] config: hold cap > 10 % of tail refused (reject /hold cap/) 
+  [ok] real config (90 min, 2 d, M 54.9 min, tail 7 d) passes the check (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=27b4bd03ea11d6f030ccc97f0c66c57d60e07089d8218aaced28d4577394da1a
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] spam held until T3: Bob HOLDs 5 times, then broadcasts at the cap over the direct channel; Reveal settles before T3 (accept) — GO-CAP: hold cap 120 s after Commit settled reached (mempool
+  [ok] Alice sweeps with b; nobody loses (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=3600028f205aa317268e955aa8da18a81119ed75d67394b704830e269430178e
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob returns after T3 − M: gate says GO-RACE (alarm), reveals anyway; with no censorship it settles (accept) — GO-RACE: ALARM past T3 − M: Reveal and Escape may both be valid at T3; broadcast
+  [ok] between cutoff and T3 − M (even with good conditions): GO-LATE alarm, never silent (L1) (accept) — GO-LATE: ALARM past the late-reveal cutoff: broadcasting b on every channel; exposure is tail-limited
+== r9_hold_runs_to_t3: PASS (24/24 checks)
+== step 9 (R5-M1 port): FAKE Refunding UTxO is refused by provenance
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=6b1b0369a2ece0c1f6d459669306332cb98a7fe1351b91725569a66aaa50bc05
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Alice's Notice procedure does NOT treat the look-alike as her settled Notice (reject) — gave up
+  [ok] …the refusal names the provenance check (creating tx did not spend her lock outref) (accept) — no upper bound
+  [ok] RefundReveal gate refuses: a is NOT published while the real escrow is Open (reject /Notice not settled|Refunding/) — REFUSE: Notice not settled (0 < 3 confirmations): do not reveal a
+  [ok] censorship ends: her REAL Notice settles and RefundReveal spends the real escrow (look-alike ignored) (accept) 
+  [ok] probe: creating tx spends another escrow's outref → refused (reject /lock outref/) 
+  [ok] probe: lock spent with a non-Notice redeemer → refused (reject /redeemer Notice/) 
+  [ok] probe: two script outputs (not the single continuing output) → refused (reject /continuing output/) 
+  [ok] probe: correct lineage → accepted (accept) 
+== r9_fake_refunding: PASS (13/13 checks)
+== step 9 (R5-M2/M3/L2): era from the node, price-driven Z, EOS
+  [ok] N1/N2: chain pre-NU7 but config says era nu7 → refused (era comes from the node) (reject /disagrees with the node/) — REFUSE: config era "nu7" disagrees with the node (nu63)
+  [ok] post-NU7 node (branch 0x77190AD9, 25 s): era derived = nu7, spacing 25 s, Zebra 7.0.0: allowed (accept) 
+  [ok] same node, config mislabelled 'now' → refused (reject /disagrees/) — REFUSE: config era "now" disagrees with the node (nu7)
+  [ok] N4: stale config spacing 75 s after NU7 → refused (reject /spacing/) — REFUSE: config spacing 75 s disagrees with the node (25 s)
+  [ok] N4: measured 75 s on a 25 s chain (> 37.5 s) → refused (nominal from the era, not config) (reject /measured block spacing/) — REFUSE: measured block spacing 75.0 s > 1.5× 25 s (nominal for nu7, from the node)
+  [ok] node reports Zebra 6.2.2 → refused (< 7.0.0) (reject /Zebra 6.2.2/) — REFUSE: Zebra 6.2.2 < 7.0.0
+  [ok] node version unknown → refused (reject /version unknown/) — REFUSE: node version unknown (fail closed)
+  [ok] L2: Zebra end-of-support height before T3 + 24 h → refused (upgrade first) (reject /end-of-support/) — REFUSE: node end-of-support at 14244 falls before T3 + 24 h (tip 4244 + 28687): upgrade Zebra first
+  [ok] L2: EOS height unknown → refused (reject /end-of-support height unknown/) — REFUSE: node end-of-support height unknown (fail closed)
+  [ok] Zebra 7.1.0 with far EOS: allowed (accept) 
+  [ok] post-NU7 node but agreed zec_branch NU6.3 → refused (reject /zec_branch/) — REFUSE: agreed zec_branch 0x37a5165b disagrees with the node's era nu7
+  [ok] nodeEra9: unknown branch / missing NU7 height → refused (reject) 
+  [ok] nodeEra9: testnet node reporting a NU7 height ≠ ZIP 259 (4,465,026) → refused (reject /ZIP 259/) 
+  [ok] N2: $13.5k at ZEC $900, Z=69, era nu7 from node → refused (economic Z = 72) (reject /economic 2V/) — REFUSE: Z=69 < 72 needed (security 69, economic 2V/(R·P) 72, floor 30; era nu7 from node)
+  [ok] …same swap at Z=72: allowed (accept) 
+  [ok] N1: Z=62 post-NU7 (needs 69 for ε=1e-3 at 5 % stales) → refused (reject /< 69/) — REFUSE: Z=62 < 69 needed (security 69, economic 2V/(R·P) 4, floor 30; era nu7 from node)
+  [ok] pre-NU7 era (from node): Z=62 suffices at 2 % stales (accept) 
+  [ok] node era unavailable → value cap refuses (reject) — REFUSE: x
+  [ok] M3: v1 $15k at ZEC $500: Z = max(69, ⌈2V/(R·P)⌉) = 144 (accept) — {"z":144,"zSecurity":69,"zEconomic":144,"zFloor":30}
+  [ok] M3: v1 $15k at ZEC $800: Z = max(69, ⌈2V/(R·P)⌉) = 90 (accept) — {"z":90,"zSecurity":69,"zEconomic":90,"zFloor":30}
+  [ok] M3: v1 $15k at ZEC $1043: Z = max(69, ⌈2V/(R·P)⌉) = 70 (accept) — {"z":70,"zSecurity":69,"zEconomic":70,"zFloor":30}
+  [ok] M3: v1 $15k at ZEC $1254.54: Z = max(69, ⌈2V/(R·P)⌉) = 69 (accept) — {"z":69,"zSecurity":69,"zEconomic":58,"zFloor":30}
+  [ok] M3: rehearsal $500 post-NU7: Z = 30 (floor 30) (accept) — {"z":30,"zSecurity":9,"zEconomic":2,"zFloor":30}
+== r9_era: PASS (23/23 checks)
+== step 9 (R5-L5): multi-block forks at K−1 and K
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=5b52f0137bf0e835b18b8c389e4718bfafb25532bf9522559edbf06f49aa3082
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] fork of 3 blocks (> 1) replaces the chain while Alice's Notice has 2 = K−1 confirmations (accept) — notice#1
+  [ok] K−1: Alice had NOT revealed a and never does (Commit won the fork) → no loss (accept) — escrow spent by someone else (e.g. a Commit won): nothing revealed
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=247027a8539f7899e55a65ab03770c1217a252f13935eaf42533fad7e5f2c92f
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] K: Notice settled (K deep), a broadcast; then a fork of 5 blocks (> K = 3) branching before T1 lands Bob's held Commit (accept) — notice#1,refundreveal#1
+  [ok] residual R-2 demonstrated: only a reorg DEEPER than K can turn a revealed a into a loss (real K = 15 on Cardano ≈ settlement assumption) (accept) 
+== r9_fork_multi: PASS (14/14 checks)
+== step 9 (R5-L4): min-ADA lock rule
+  [ok] Refunding datum is 8 bytes larger than the Open datum (accept) — 262 → 270
+  [ok] lock at exactly the Open-datum min-ADA → refused by W.1 (reject /minADA/) 
+  [ok] lock ≥ minADA(Refunding) + 2 ADA margin (4.14 ADA) → accepted; 1000 ADA lock accepted (accept) 
+  [ok] datum size unknown → refused (reject) 
+== r9_minada: PASS (4/4 checks)
+results: /workspace/zeutxo-path1/step9/results/e2e9-all-2026-11-03T14-35-13-794Z.json elapsed 1003.011 s

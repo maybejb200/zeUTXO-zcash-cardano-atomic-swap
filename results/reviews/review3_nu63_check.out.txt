@@ -1,0 +1,14 @@
+branch used to build/verify txs:
+41:const BRANCH: BranchId = BranchId::Nu6_2;
+tx version:
+145:    TransactionData::from_parts(TxVersion::V5, BRANCH, 0, BlockHeight::from_u32(expiry), None, None, None, Some(b))
+415:    if tx.version() != TxVersion::V5 || tx.consensus_branch_id() != BRANCH { return Err("wrong version/branch".into()); }
+Bob's fund tx: spends his own wallet note and pays the NEW joint Orchard address (cross-address transfer):
+370:    let (bytes, info) = build_tx(vec![(FullViewingKey::from(&sk), n)], vec![pos], vec![(addr_j, pay), (wallet_addr(&seed), n.value().inner() - pay - fee)], &leaves(&ch), &mut *s, false, false, expiry_for(&ch, a));
+382:    let (bytes, info) = build_tx(vec![(FullViewingKey::from(&sk), n)], vec![pos], vec![(wallet_addr(&seed), n.value().inner() - zip317_fee(2))], &leaves(&ch), &mut *s, false, false,
+sweep: spends the joint note to a different address (cross-address again):
+557:    let (bytes, info) = build_tx(vec![(fvk, note)], vec![pos], vec![(to, note.value().inner() - fee)], &leaves(&ch), &mut *signer, manual, cheat == "tamper_
+does the simulated node enforce any NU6.3 rule (enableCrossAddress / Orchard pool balance >= 0 / Ironwood)?
+  NONE -> all 269 checks validate against superseded consensus rules
+orchard crate:
+7:orchard = { version = "=0.15.5", default-features = false, features = ["std", "circuit", "multicore"] }

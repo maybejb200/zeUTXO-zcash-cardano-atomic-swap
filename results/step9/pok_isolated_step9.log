@@ -1,0 +1,11 @@
+[ok] P1 control: honest proof: expected "ACCEPT", got "ACCEPT"
+[ok] P2 Pallas PoK response s_p + 1 (rings untouched): expected "PoK dlog(P) fails", got "PoK dlog(P) fails"
+[ok] P3 BLS PoK response s_b + 1 (rings untouched): expected "PoK dlog(Q) fails", got "PoK dlog(Q) fails"
+[ok] P4 PoK transplanted from a valid proof of the same statement under another ctx: expected "PoK dlog(P) fails", got "PoK dlog(P) fails"
+[ok] P5 F7 shifted statement (both groups), full verifier: expected "PoK dlog(P) fails", got "PoK dlog(P) fails"
+[ok] P5n same proof, NAIVE verifier without PoK (shows the PoK is load-bearing): expected "ACCEPT", got "ACCEPT"
+[ok] P6a BLS-only shift: Pallas statement is the honest P: expected "ACCEPT", got "ACCEPT"
+[ok] P6 BLS-only shifted statement, full verifier (only PoK(Q) can catch it): expected "PoK dlog(Q) fails", got "PoK dlog(Q) fails"
+[ok] P6n same, NAIVE verifier: expected "ACCEPT", got "ACCEPT"
+[ok] P7 Pallas PoK R = identity: expected "PoK dlog(P) fails", got "PoK dlog(P) fails"
+{"total": 10, "failed": 0}

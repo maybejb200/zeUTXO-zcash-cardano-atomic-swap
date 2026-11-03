@@ -1,0 +1,80 @@
+[
+ {
+  "id": "H1",
+  "name": "persistent HOLD condition: b broadcast within 90 min of Commit settling",
+  "safe": true,
+  "detail": "first broadcast 90 min after settle, 6.92 d before T3 (GO-CAP: hold cap 5400 s after Commit set)"
+ },
+ {
+  "id": "H2",
+  "name": "reveal after T3 − M carries a race ALARM (never silent)",
+  "safe": true,
+  "detail": "GO-RACE: ALARM past T3 − M: Reveal and Escape may both be valid at T3; broadcasting b anyway on every channel (not revealing loses the ZEC for sure)"
+ },
+ {
+  "id": "N1",
+  "name": "post-NU7 node + config era 'now' refused; with node era, Z=62 refused",
+  "safe": true,
+  "detail": "REFUSE: config era \"now\" disagrees with the node (nu7)"
+ },
+ {
+  "id": "N2",
+  "name": "$13.5k at ZEC $900, Z=69, era from node: refused",
+  "safe": true,
+  "detail": "REFUSE: Z=69 < 72 needed (security 69, economic 2V/(R·P) 72, floor 30; era nu7 from node)"
+ },
+ {
+  "id": "N3",
+  "name": "Z for $15k derived from price",
+  "safe": true,
+  "detail": "Z(1254.54)=69, Z(800)=90, Z(500)=144"
+ },
+ {
+  "id": "N4",
+  "name": "post-NU7, measured 100 s refused; stale config 75 s refused",
+  "safe": true,
+  "detail": "REFUSE: measured block spacing 100.0 s > 1.5× 25 s (nominal for nu7, from the node) | REFUSE: config spacing 75 s disagrees with the node (25 s)"
+ },
+ {
+  "id": "N5",
+  "name": "swap whose 7-day tail crosses NU7 refused",
+  "safe": true,
+  "detail": "REFUSE: NU7 blackout — activation at 3543405 within the swap window to T3 + 24 h (tip 3538249, 28941 blocks)"
+ },
+ {
+  "id": "N6",
+  "name": "mainnet blackout: ~8.5 d before NU7 to 24 h after",
+  "safe": true,
+  "detail": "REFUSE: NU7 blackout — ac | REFUSE: NU7 blackout — ac | REFUSE: NU7 blackout — ac | REFUSE: NU7 blackout — ac"
+ },
+ {
+  "id": "N7",
+  "name": "rehearsal Z=10 post-NU7 refused (floor 30)",
+  "safe": true,
+  "detail": "REFUSE: Z=10 < 30 needed (security 9, economic 2V/(R·P) 1, floor 30; era nu7 from node)"
+ },
+ {
+  "id": "P1",
+  "name": "look-alike Refunding UTxO (plain payment) refused by provenance",
+  "safe": true,
+  "detail": "REFUSE: the tx that created this UTxO did not spend my lock outref (look-alike, not my escrow)"
+ },
+ {
+  "id": "T1",
+  "name": "no e2e9 check is a constant 'true' (the 3 f2 '(observe)' library notes carry evidence, documented D44)",
+  "safe": true,
+  "detail": "0 constant checks; 3 f2 notes"
+ },
+ {
+  "id": "MA",
+  "name": "lock at Open-datum min-ADA refused by W.1 min-ADA rule",
+  "safe": true,
+  "detail": "REFUSE: lock 2228270 lovelace < minADA(Refunding datum) + margin = 4305850"
+ },
+ {
+  "id": "L2",
+  "name": "Zebra EOS before T3 + 24 h refused",
+  "safe": true,
+  "detail": "REFUSE: node end-of-support at 3620000 falls before T3 + 24 h (tip 3600000 + 28941): upgrade Zebra first"
+ }
+]

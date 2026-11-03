@@ -1,0 +1,98 @@
+[
+ {
+  "id": "V1",
+  "name": "usd = NaN (e.g. bad lovelace/zats parse) is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "V2",
+  "name": "feed.zecUsd = NaN is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "V2b",
+  "name": "feed without zecUsd is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "V3",
+  "name": "feed dated 30 days in the FUTURE is refused (clock/feed error)",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "V4",
+  "name": "empty pool list is refused",
+  "safe": true,
+  "detail": "REFUSE: malformed pool-share feed"
+ },
+ {
+  "id": "V5",
+  "name": "10 ZEC when the live feed says $2509/ZEC (true value $25091 > $15k cap) is refused",
+  "safe": false,
+  "detail": "ACCEPTED: cap saw $12545 from VC.ZEC_usd=1254.54"
+ },
+ {
+  "id": "N1",
+  "name": "node status without nu7_height (undefined) is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "N2",
+  "name": "nu7_height = NaN is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "N3",
+  "name": "measured spacing NaN is refused",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "N4",
+  "name": "unmeasurable spacing (0 / missing) is refused, not replaced by nominal (e2e3.mjs:220)",
+  "safe": false,
+  "detail": "ACCEPTED with measuredSpacing := nominal"
+ },
+ {
+  "id": "N5",
+  "name": "test label '3,613 blocks' matches the code's swapBlocks",
+  "safe": false,
+  "detail": "code: 4093 blocks; 6000 > 5246 so the test still passes"
+ },
+ {
+  "id": "N6",
+  "name": "post-activation blackout fires on its own (branch agreed = NU7, tip 100 blocks after activation)",
+  "safe": true,
+  "detail": "REFUSE: NU7 blackout — activation at 100 is within 24 h of the swap window (tip 200)"
+ },
+ {
+  "id": "P1",
+  "name": "premium is refundable or conditional on Bob funding (else Bob can take it and never fund)",
+  "safe": false,
+  "detail": "gate says OK to fund; but the premium ($105) is already Bob's. Riskless profit per walk-away: $105; exposure counter is per-counterparty, Sybil-trivial"
+ },
+ {
+  "id": "P2",
+  "name": "premiumGate is wired into the swap flow (bobChecksLock / fundZec)",
+  "safe": false,
+  "detail": "only called in premiumCases unit tests (e2e3.mjs:964-966); fundZec never checks it"
+ },
+ {
+  "id": "G1",
+  "name": "refundStartGate refuses NaN now",
+  "safe": false,
+  "detail": "null"
+ },
+ {
+  "id": "G2",
+  "name": "redeemBroadcastGate holds on NaN mempool fill",
+  "safe": true,
+  "detail": "HOLD: own node's mempool NaN% ≥ 50% — do not reveal b now"
+ }
+]

@@ -1,0 +1,4 @@
+alice pub swap: NEW-SWAP  bob pub swap: OLD-SWAP
+Alice's setup result (expected ABORT if ctx were bound to Alice's own swap id):
+{"addr_j":"8099689ff0499fc7b38d941ac3c476f902e74d11fa400cc77e4bdfc6b11f0b23b8744b2377f2cf5cab5f14","dleq_verify_ms_both":944,"ok":true,"sigma":1}
+exit=0

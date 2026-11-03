@@ -1,0 +1,74 @@
+[
+ {
+  "id": "H1",
+  "name": "a persistent HOLD condition (mempool 60 % or probe unknown) delays b until T3 − M",
+  "safe": false,
+  "detail": "first allowed reveal 54.0 min before T3 (hold lasted 6.96 days)"
+ },
+ {
+  "id": "H2",
+  "name": "reveal gate after T3 (Escape already valid) warns/refuses",
+  "safe": false,
+  "detail": "null = go ahead (b goes into an Escape race)"
+ },
+ {
+  "id": "N1",
+  "name": "post-NU7 swap mislabelled era='now' at Z=62 is refused (needs 69)",
+  "safe": false,
+  "detail": "era now → ALLOWED; era nu7 → REFUSE: Z=62 < 69 needed for ε=0.001 at q_eff=0.3618 (q=0.35, stale=0.05)"
+ },
+ {
+  "id": "N2",
+  "name": "$13.5k swap at ZEC $900, Z=69, era mislabelled 'now' is refused",
+  "safe": false,
+  "detail": "era now → ALLOWED; era nu7 → REFUSE: $13500 above ½·Z·block reward $12938"
+ },
+ {
+  "id": "N3",
+  "name": "Z for a $15k swap is derived from price (timing model uses a fixed Z=69)",
+  "safe": false,
+  "detail": "break-even ZEC price at Z=69: $1043; at $800 the gate says: REFUSE: $15000 above ½·Z·block reward $11500; Z needed at $800 = 90, at $500 = 144 (≈ 60 min at 25 s)"
+ },
+ {
+  "id": "N4",
+  "name": "post-NU7 node, stale nominal 75 s, measured 100 s (4× the 25 s target) is refused",
+  "safe": false,
+  "detail": "ALLOWED"
+ },
+ {
+  "id": "N5",
+  "name": "a swap whose 7-day tail crosses NU7 activation is refused or flagged",
+  "safe": false,
+  "detail": "tip 3538249 (5156 blocks ≈ 107 h before NU7): gate → ALLOWED; the 7.2-day tail spans ≈ 8295 pre-NU7 blocks"
+ },
+ {
+  "id": "N6",
+  "name": "blackout around mainnet NU7 (3,543,405) refuses swaps from ~4.5 days before to 24 h after",
+  "safe": true,
+  "detail": "pre 1152 + swap 4003 blocks before, 3456 after"
+ },
+ {
+  "id": "N7",
+  "name": "rehearsal at Z=10 under era nu7 is refused (floor 30)",
+  "safe": true,
+  "detail": "REFUSE: depth below floor (K ≥ 15, Z ≥ 30)"
+ },
+ {
+  "id": "P1",
+  "name": "RefundReveal provenance (Notice spends the lock outref) is checked by content, not by a label",
+  "safe": false,
+  "detail": "gate signature has no provenance input (returns null); sim wallet uses tx.label regex: true"
+ },
+ {
+  "id": "T1",
+  "name": "no e2e4 check is a constant 'true'",
+  "safe": false,
+  "detail": "3 R.rec(..., \"observe\", true) checks always pass"
+ },
+ {
+  "id": "MA",
+  "name": "Notice output needs no more min-ADA than the lock (else a min-ADA lock can never be refunded)",
+  "safe": false,
+  "detail": "datum grows by 8 bytes → +34480 lovelace min-ADA; W.1 has no 'lock ≥ min-ADA of the Refunding output' rule (only matters for tiny locks or a coinsPerUtxoByte rise)"
+ }
+]

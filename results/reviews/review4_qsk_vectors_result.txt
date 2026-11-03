@@ -1,0 +1,4 @@
+vector 2: nk true qsk true qk true rivk_ext true default_addr true
+vector 3: nk true qsk true qk true rivk_ext true default_addr true
+ALL MATCH
+(step6 joint_keys derivation lines, verbatim, vs zafe-core vectors from ZcashFoundation/frost-tools; source: review4/work/step6/zec/examples/qsk_vectors.rs)
