@@ -1,0 +1,22 @@
+# Next-route decision after archiving R1
+
+Recommendation among the original R options: **R2, shared transparent auxiliary input, for a bounded feasibility review only. No R option currently has evidence sufficient to promise a30minute MVP.** R2 is a hypothesis worth checking next, not an approved build or a validated protocol.
+
+Why R2: the original proposal keeps principal in a jointly controlled shielded note and uses a small shared transparent UTXO in an authorized timed refund. Its intended advantage is enforcement through Zcash transaction authorization/timing and cross-chain secret exchange, instead of proving the whole Zcash relay on Cardano. Whether a complete safe construction actually achieves that advantage is unresolved. Adding an auxiliary input alone does not produce an atomic swap.
+
+Privacy change: the auxiliary input and associated transaction pattern are visible; strict no-transparent-input privacy is lost, and cross-chain linkability must be assessed. Shielded principal is an intended property that needs a complete success/refund public-value-flow inventory. The user has NOT accepted this relaxation or authorized implementation. If strict all-shielded inputs remain mandatory, do not silently switch to R2; none of the remaining shortlisted routes is established as a practical fallback.
+
+First decision must be on paper/source, before principal funding, proof work or another sprint plan:
+
+1. Pin an actually available transaction version, pool and network implementation. Identify every value, anchor, nullifier, proof and signature that must exist before principal funding. Establish an independently usable refund despite either party disappearing. Do not assume a draft feature is deployed.
+2. Enumerate the complete permitted spend graph for shielded principal and auxiliary UTXO. Neither party may independently sabotage the auxiliary input after learning the success secret or create another shielded spend that bypasses the protocol. Shared ownership alone is insufficient.
+3. Show exactly which on-chain event releases the success secret, why it cannot be extracted from a losing/mempool transaction to steal ADA, and how claim/refund ordering survives stated reorg/delay assumptions. Complete Cardano branches, finite expiry, fee changes, two clocks and unilateral recovery must be covered.
+4. Provide full happy-path timing toward30minutes plus a separate refund/recovery budget and explicit privacy inventory. Reject any return to the unresolved R1 relay as an unacknowledged dependency.
+
+PASS for recommending one later fixture: complete version-specific transaction/signature graph, no identified unilateral theft/sabotage/indefinite-lock trace within explicit assumptions, no unsupported network feature, accepted privacy tradeoff and a credible complete cost/timing plan. FAIL: any of those obligations fails; stop R2 unchanged. INCONCLUSIVE: remain paused rather than widening research automatically. No test budget or implementation is authorized by this recommendation; a proposed fixture needs its own bounded cost and exact pass/fail decisions.
+
+Current-source check on2026-09-10: official ZIP229 still labels v6 Draft and describes moving anchors into authorizing data to enable preauthorization before later proof/anchor selection. This is relevant to the earlier R2 idea, but the document alone does not establish availability on the chosen network. Official ZIP225 describes v5's lock_time and transparent inputs; that does not prove safe pre-funding shielded refund construction. Sources: https://zips.z.cash/zip-0229 and https://zips.z.cash/zip-0225 . No released-version node experiment was run for this recommendation.
+
+Why not R3–R5: R3's naive refund-signature challenge confuses a revealed signature with successful refund inclusion; correcting it may recreate R1's relay burden. R4 requires specialist timed-cryptography assumptions and race analysis and is not a supported fast-MVP path. R5 cannot make a disappearing participant reveal a missing key share and is rejected as standalone recovery. These are the preserved shortlist's scoped findings, not universal impossibility claims or breaks of named published protocols.
+
+If delivering a practical swap matters more than shielding, reassessing the separate transparent-Zcash swap project is a different scope choice, not R2 and not an automatically approved substitute. Its present readiness has not been audited in this archival task.
