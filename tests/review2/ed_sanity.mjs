@@ -1,0 +1,16 @@
+import crypto from "crypto"; import { createRequire } from "module";
+const require = createRequire("/workspace/zeutxo-path1/step2/ada/node_modules/");
+const sodium = require("libsodium-wrappers-sumo"); await sodium.ready;
+const L = (1n << 252n) + 27742317777372353535851937790883648493n;
+const le = (b) => BigInt("0x" + Buffer.from(b).reverse().toString("hex"));
+const toLe = (n) => Buffer.from(n.toString(16).padStart(64, "0"), "hex").reverse();
+const seed = crypto.randomBytes(32), msg = crypto.randomBytes(129);
+const h = crypto.createHash("sha512").update(seed).digest(); const a = Buffer.from(h.subarray(0, 32)); a[0] &= 248; a[31] &= 127; a[31] |= 64;
+const sk = crypto.createPrivateKey({ key: Buffer.concat([Buffer.from("302e020100300506032b657004220420", "hex"), seed]), format: "der", type: "pkcs8" });
+const A = crypto.createPublicKey(sk).export({ format: "der", type: "spki" }).subarray(-32);
+const r = le(crypto.randomBytes(64)) % L;
+const R = Buffer.from(sodium.crypto_scalarmult_ed25519_base_noclamp(toLe(r)));
+const k = le(crypto.createHash("sha512").update(Buffer.concat([R, A, msg])).digest()) % L;
+const sig = Buffer.concat([R, toLe((r + k * le(a)) % L)]);
+const pub = crypto.createPublicKey({ key: Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), A]), format: "der", type: "spki" });
+console.log("manual sig: node", crypto.verify(null, msg, pub, sig), "sodium", sodium.crypto_sign_verify_detached(sig, msg, A));

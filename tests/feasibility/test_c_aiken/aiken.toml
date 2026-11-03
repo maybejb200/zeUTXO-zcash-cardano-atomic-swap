@@ -1,0 +1,18 @@
+name = "zeutxo/path1"
+version = "0.0.0"
+compiler = "v1.1.24"
+plutus = "v3"
+license = "Apache-2.0"
+description = "zeUTXO path 1: Cardano escrow with Redeem/Refund/Punish revealing a Pallas/BLS key share"
+
+[repository]
+user = "local"
+project = "zeutxo-path1"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v4.0.0"
+source = "github"
+
+[config]

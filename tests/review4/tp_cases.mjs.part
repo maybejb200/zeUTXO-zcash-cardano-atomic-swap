@@ -1,0 +1,157 @@
+// ======================= review4: two-phase Commit/Reveal escrow (design X) — emulator scenarios =======================
+const commitTx = (S, sig, { upper = S.T1 - 1000, out = null } = {}) => (tx) => {
+  let t = tx.collectFrom([S.escrow], Commit(sig)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(S.B))
+    .pay.ToContract(S.scriptAddr, { kind: "inline", value: out ?? datumOf(S, { phase: 1n }) }, { lovelace: ADA_LOCK });
+  if (upper !== null) t = t.validTo(upper); return t; };
+const revealTx = (S, u, b) => (tx) => tx.collectFrom([u], Reveal(b)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(S.B));
+const escapeTx = (S, u, from) => (tx) => tx.collectFrom([u], Escape).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(S.A)).validFrom(from);
+const refundClaimedTx = (S, u, a, from) => (tx) => tx.collectFrom([u], Refund(a)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(S.A)).validFrom(from);
+const claimedUtxo = async (S) => (await S.L.em.getUtxos(S.scriptAddr)).find(u => u.txHash === S.commitHash);
+// Bob's Commit procedure: like bobRedeem but the tx carries NO secret; resubmit until settled or T1.
+async function bobCommit(S, { maxBlocks = 40 } = {}) {
+  if (bobNow(S) > S.LAST) return { refused: "past LAST" };
+  const builds = [];
+  const once = async () => { await refreshParams(S); const t = await build(S, S.B, commitTx(S, S.goSig)); const r = await signSubmit(S, t, S.B, `commit#${builds.length + 1}`); builds.push(r); return r; };
+  let cur = await once();
+  for (let i = 0; i < maxBlocks; i++) {
+    await S.L.awaitBlock(1);
+    const st = S.L.status(cur.txHash);
+    if (st === "confirmed" && S.L.confirmations(cur.txHash) >= K) { S.commitHash = cur.txHash; return { settled: true, builds, cur }; }
+    if (st !== "confirmed" && st !== "pending") { if (!escrowLive(S)) return { settled: false, builds, why: "escrow spent" }; if (S.L.now() >= S.T1 - 1000) return { settled: false, builds, why: "T1 reached before Commit settled: " + (S.L.dropReason(cur.txHash) ?? st) }; cur = await once(); }
+    if (S.L.now() >= S.T1 + 60_000 && st !== "confirmed") return { settled: false, builds, why: "Commit not included by T1 (" + (S.L.dropReason(cur.txHash) ?? st) + ")" };
+  }
+  return { settled: false, builds, why: "gave up" };
+}
+// Bob's Reveal: ONLY after Commit is settled (wallet rule); resubmit until settled — no deadline before T3.
+async function bobReveal(S, b, { maxBlocks = 200 } = {}) {
+  if (!S.commitHash || S.L.confirmations(S.commitHash) < K) return { refused: "Commit not settled: do not reveal b" };
+  const u = await claimedUtxo(S);
+  const t = await build(S, S.B, revealTx(S, u, b)); const r = await signSubmit(S, t, S.B, "reveal");
+  for (let i = 0; i < maxBlocks; i++) { await S.L.awaitBlock(1); if (S.L.confirmations(r.txHash) >= K) return { settled: true, r, at: S.L.now() }; if (S.L.now() >= S.T3 + 120_000) break; }
+  return { settled: false, r };
+}
+// Alice watches the mempool for b (any tx spending the Claimed UTxO with a Reveal redeemer) and sweeps.
+function aliceSeesB(S) {
+  for (const t of S.L.seen) { if (!/^reveal/.test(t.label)) continue; const tx = CML.Transaction.from_cbor_hex(t.txHex);
+    const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(); for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 1) return d.fields[0]; } }
+  return null;
+}
+const secretInMempool = (S, x) => { const h = x.toString(16); return S.L.seen.some(t => { const tx = CML.Transaction.from_cbor_hex(t.txHex); const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer();
+  for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.fields?.some(f => typeof f === "bigint" && f === x)) return true; } return false; }); };
+
+// A bribed producer can include ANY valid tx regardless of what other mempools hold, so script-level rejections are
+// tested by submitting with the conflicting censored tx set aside (restored afterwards).
+async function asideFrom(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
+  try { return await fn(); } finally { const now = new Set(S.L.pending.map(p => p.hash)); S.L.pending = S.L.pending.filter(p => !keep.some(k => [...k.inputs].some(i => p.inputs.has(i)))).concat(keep.filter(k => !now.has(k.hash))); } }
+function refundA(S) { for (const t of S.L.seen) { if (!/^refund/.test(t.label)) continue; const tx = CML.Transaction.from_cbor_hex(t.txHex);
+  const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(); for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 2) return d.fields[0]; } } return null; }
+async function tpHappy() {
+  const R = new Results("tp_happy"); console.log("== review4 two-phase: happy path (Commit, then Reveal; Alice sweeps with b from the Reveal)");
+  const S = await start("tp-happy", R); const bobX = secret(S, "bob"), aliceX = secret(S, "alice");
+  const c = await bobCommit(S); R.rec("Bob's Commit (go_sig, no secret) settles before T1", "accept", c.settled, c.why);
+  R.rec("Commit carried no secret: neither a nor b appears in any broadcast redeemer", "accept", !secretInMempool(S, bobX) && !secretInMempool(S, aliceX));
+  const u = await claimedUtxo(S); R.rec("Claimed UTxO at the same script address with the same value and phase=1 datum", "accept", u && BigInt(u.assets.lovelace) === ADA_LOCK && u.datum === datumOf(S, { phase: 1n }));
+  await mustFail(R, "Alice tries Refund{a} on the Claimed UTxO at T1: script rejects", SCRIPT_FAIL, async () => { await S.L.untilMs(S.T1); return signSubmit(S, await build(S, S.A, refundClaimedTx(S, u, aliceX, S.T1), true), S.A, "cheat_refund_claimed"); });
+  const r = await bobReveal(S, bobX); R.rec("Bob's Reveal{b} settles (after T1: no deadline)", "accept", r.settled, r.at);
+  const b = aliceSeesB(S); R.rec("Alice reads b from the Reveal", "accept", b === bobX);
+  const sw = sweep(S, R, "alice", [`other_share=${leHex(b)}`], "Sweep (Alice, a+b)"); R.rec("Alice sweeps the ZEC with a+b", "accept", sw.accepted === true, sw.reason);
+  R.rec(`Bob holds the ADA (+${Number(await lovelaceAt(S, S.B.address)) / 1e6} ADA balance)`, "accept", (await lovelaceAt(S, S.B.address)) > ADA_LOCK);
+  return { R, S };
+}
+async function tpCensorCommit() {
+  const R = new Results("tp_censor_commit"); console.log("== review4 two-phase: producers censor Bob's COMMIT until T1 (the congestion3 attack, moved to the no-secret tx)");
+  const S = await start("tp-cc", R); const bobX = secret(S, "bob"), aliceX = secret(S, "alice");
+  S.L.censor = (p) => /^commit/.test(p.label) && S.L.now() < S.T1 + 120_000;
+  const c = await bobCommit(S); R.rec("Commit censored past T1: not included, dropped as outside its validity interval", "observe", !c.settled, c.why);
+  S.L.censor = null; await S.L.awaitBlock(1);   // the censored Commit is re-validated and dropped (ttl passed)
+  R.rec("b was NEVER broadcast (Bob does not reveal before Commit settles)", "accept", !secretInMempool(S, bobX), "");
+  const rf = await aliceRefund(S, R, aliceX, { at: Math.max(S.T1, S.L.now()) }); R.rec("Alice refunds her ADA with a (escrow still Open)", "accept", rf.settled, rf.refused ?? rf.why);
+  await mustFail(R, "Alice cannot sweep the ZEC (she never learned b)", NODE_SIG, () => sweep(S, R, "alice", ["cheat=one_share", `other_share=${leHex(0n)}`], "cheat_alice_one_share"));
+  const a = refundA(S);
+  const sw = sweep(S, R, "bob", [`other_share=${leHex(a)}`], "Sweep (Bob, a+b, takes ZEC back)"); R.rec("Bob takes his ZEC back with a: censorship cost only liveness, no theft", "accept", sw.accepted === true, sw.reason);
+  return { R, S };
+}
+async function tpCensorReveal() {
+  const R = new Results("tp_censor_reveal"); console.log("== review4 two-phase: producers censor Bob's REVEAL (b in the mempool) for hours past T1 and T2");
+  const S = await start("tp-cr", R); const bobX = secret(S, "bob"), aliceX = secret(S, "alice");
+  const c = await bobCommit(S); R.rec("Commit settles", "accept", c.settled, c.why);
+  const lift = S.T2 + 600_000;   // censor until 10 min after T2 (sim), i.e. long after every old deadline
+  S.L.censor = (p) => /^reveal/.test(p.label) && S.L.now() < lift;
+  const u = await claimedUtxo(S); const tx = await build(S, S.B, revealTx(S, u, bobX)); const rv = await signSubmit(S, tx, S.B, "reveal");
+  await S.L.awaitBlock(2);
+  const b = aliceSeesB(S); R.rec("Alice reads b from the censored Reveal in the mempool", "observe", b === bobX);
+  const sw = sweep(S, R, "alice", [`other_share=${leHex(b)}`], "Sweep (Alice, a+b)"); R.rec("Alice sweeps the ZEC (her side of the trade, as agreed)", "accept", sw.accepted === true, sw.reason);
+  await S.L.untilMs(S.T1);
+  await mustFail(R, "Alice tries Refund{a} at T1 on the Claimed UTxO (the congestion3 theft): script rejects", SCRIPT_FAIL, async () => asideFrom(S, /^reveal/, async () => signSubmit(S, await build(S, S.A, refundClaimedTx(S, u, aliceX, S.T1), true), S.A, "cheat_refund_claimed")));
+  await S.L.untilMs(S.T2);
+  await mustFail(R, "Alice tries Escape at T2 (< T3): script rejects", SCRIPT_FAIL, async () => asideFrom(S, /^reveal/, async () => signSubmit(S, await build(S, S.A, escapeTx(S, u, S.T2), true), S.A, "cheat_escape_early")));
+  for (let i = 0; i < 80 && S.L.confirmations(rv.txHash) < K; i++) await S.L.awaitBlock(1);
+  R.rec("censorship lifted after T2: the SAME Reveal is still valid and settles; Bob gets the ADA", "accept", S.L.confirmations(rv.txHash) >= K, `settled ${(S.L.now() - S.T2) / 1000} s after T2`);
+  return { R, S };
+}
+async function tpCensorToT3() {
+  const R = new Results("tp_censor_to_t3"); console.log("== review4 two-phase: CONTROL — residual: censor the Reveal for the WHOLE window up to T3");
+  const S = await start("tp-t3", R); const bobX = secret(S, "bob");
+  const c = await bobCommit(S); R.rec("Commit settles", "accept", c.settled, c.why);
+  S.L.censor = (p) => /^reveal/.test(p.label) && S.L.now() < S.T3 + 600_000;
+  const u = await claimedUtxo(S); const tx = await build(S, S.B, revealTx(S, u, bobX)); await signSubmit(S, tx, S.B, "reveal");
+  await S.L.awaitBlock(2); const b = aliceSeesB(S); sweep(S, R, "alice", [`other_share=${leHex(b)}`], "Sweep (Alice, a+b)");
+  await S.L.untilMs(S.T3);
+  let ok = true, why; try { S.L.pending = S.L.pending.filter(p => !/^reveal/.test(p.label));   // the colluding producer discards Bob's Reveal and includes Alice's Escape
+    const r = await signSubmit(S, await build(S, S.A, escapeTx(S, u, S.T3)), S.A, "escape"); await S.L.awaitBlock(K + 1); ok = S.L.confirmations(r.txHash) >= K; } catch (e) { ok = false; why = e.message; }
+  R.rec(`CONTROL: only censorship lasting the whole T3 window (sim ${(S.T3 - S.T1) / 60000} min; real ≥ 7 days) lets Alice escape with the ADA too`, "observe", ok, why);
+  S.L.censor = null; return { R, S };
+}
+async function tpCommitRollback() {
+  const R = new Results("tp_commit_rollback"); console.log("== review4 two-phase: Commit included, then rolled back after T1 (cannot re-enter)");
+  const S = await start("tp-rb", R); const bobX = secret(S, "bob"), aliceX = secret(S, "alice");
+  await S.L.untilMs(S.T1 - 25_000);
+  S.LAST = S.T1; // test-only: let Bob commit late so that the rollback lands after T1
+  const t = await build(S, S.B, commitTx(S, S.goSig)); const cm = await signSubmit(S, t, S.B, "commit#late");
+  await S.L.awaitBlock(1); const inc = S.L.confirmations(cm.txHash);
+  await S.L.untilMs(S.T1 + 1000); const n = S.L.confirmations(cm.txHash); S.L.rollback(n);
+  await S.L.awaitBlock(1);
+  R.rec("Commit was included, then orphaned after T1 and dropped on re-validation (outside validity interval)", "observe", inc > 0 && S.L.status(cm.txHash) === "dropped", S.L.dropReason(cm.txHash));
+  S.commitHash = cm.txHash; const rv = await bobReveal(S, bobX, { maxBlocks: 1 });
+  R.rec("Bob's wallet refuses to reveal b (Commit not settled)", "accept", /not settled/.test(rv.refused ?? ""), rv.refused);
+  const rf = await aliceRefund(S, R, aliceX, { at: S.L.now() }); R.rec("Alice refunds with a", "accept", rf.settled, rf.refused ?? rf.why);
+  const a = refundA(S);
+  const sw = sweep(S, R, "bob", [`other_share=${leHex(a)}`], "Sweep (Bob, a+b)"); R.rec("Bob recovers his ZEC: no loss", "accept", sw.accepted === true, sw.reason);
+  return { R, S };
+}
+async function tpBobSilent() {
+  const R = new Results("tp_bob_silent"); console.log("== review4 two-phase: Bob commits and never reveals (griefing) → Alice escapes at T3 WITHOUT revealing a");
+  const S = await start("tp-silent", R); const aliceX = secret(S, "alice"), bobX = secret(S, "bob");
+  const c = await bobCommit(S); R.rec("Commit settles", "accept", c.settled, c.why);
+  const u = await claimedUtxo(S); await S.L.untilMs(S.T3);
+  const t = await build(S, S.A, escapeTx(S, u, S.T3)); const r = await signSubmit(S, t, S.A, "escape"); await S.L.awaitBlock(K + 1);
+  R.rec("Alice's Escape (no secret) settles at T3: ADA back to Alice", "accept", S.L.confirmations(r.txHash) >= K);
+  R.rec("a was never broadcast", "accept", !secretInMempool(S, aliceX));
+  await mustFail(R, "Bob cannot recover his ZEC (he never learned a): non-reveal costs Bob everything, so it is dominated", NODE_SIG, () => sweep(S, R, "bob", ["cheat=one_share", `other_share=${leHex(0n)}`], "cheat_bob_one_share"));
+  await mustFail(R, "Bob's late Reveal after the Escape: input already spent", BAD_INPUTS, async () => signSubmit(S, await build(S, S.B, revealTx(S, u, bobX), true), S.B, "reveal_late"));
+  return { R, S };
+}
+async function tpCommitCheats() {
+  const R = new Results("tp_commit_cheats"); console.log("== review4 two-phase: Commit continuing-output attacks on the strict ledger");
+  const S = await start("tp-cheat", R);
+  await mustFail(R, "Commit whose output keeps phase=0 (re-openable): script rejects", SCRIPT_FAIL, async () => signSubmit(S, await build(S, S.B, commitTx(S, S.goSig, { out: datumOf(S, { phase: 0n }) }), true), S.B, "cheat_commit_phase0"));
+  await mustFail(R, "Commit whose output moves T3 to T1 (early escape): script rejects", SCRIPT_FAIL, async () => signSubmit(S, await build(S, S.B, commitTx(S, S.goSig, { out: datumOf(S, { phase: 1n, t3: BigInt(S.T1) }) }), true), S.B, "cheat_commit_t3"));
+  await mustFail(R, "Commit with an upper bound after T1: script rejects", SCRIPT_FAIL, async () => signSubmit(S, await build(S, S.B, commitTx(S, S.goSig, { upper: S.T1 + 60_000 }), true), S.B, "cheat_commit_late"));
+  await mustFail(R, "Commit with a go_sig over another outref: node Ed25519 / script rejects", SCRIPT_FAIL, async () => signSubmit(S, await build(S, S.B, commitTx(S, goSign(S.go.sk, goMsg(goFields(S, S.escrow, { index: 1 })))), true), S.B, "cheat_commit_gosig"));
+  const c = await bobCommit(S); R.rec("positive control: honest Commit settles", "accept", c.settled, c.why);
+  return { R, S };
+}
+
+const which = process.argv[2] || "all";
+const all = { tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats };
+const out = {}; const t0 = Date.now();
+for (const [k, f] of Object.entries(all)) {
+  if (which !== "all" && which !== k) continue;
+  let R, S;
+  try { ({ R, S } = await f()); } catch (e) { console.log(`== ${k}: CRASH ${e.stack}`); out[k] = { pass: false, crash: String(e.stack) }; continue; }
+  out[k] = { pass: R.pass, checks: R.checks, events: S?.L.events, dropped: S?.L.dropped };
+  console.log(`== ${k}: ${R.pass ? "PASS" : "FAIL"} (${R.checks.filter(c => c.ok).length}/${R.checks.length} checks)`);
+}
+out.elapsed_s = (Date.now() - t0) / 1000; out.script_hash = SCRIPT_HASH; out.script_bytes = SCRIPT.script.length / 2;
+fs.writeFileSync("/workspace/zeutxo-path1/review4/twophase-results.json", JSON.stringify(out, (k, v) => typeof v === "bigint" ? Number(v) : v, 2));
+console.log("results: review4/twophase-results.json elapsed", out.elapsed_s, "s");

@@ -1,0 +1,15 @@
+[package]
+name = "test_b_dleq"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+blake2b_simd = "1.0.5"
+hex = "0.4.3"
+pasta_curves = { version = "0.5", features = ["alloc"] }
+bls12_381 = { version = "0.8", features = ["experimental"] }
+rand_core = { version = "0.6", features = ["getrandom"] }
+sha2 = "0.9"
+
+[profile.release]
+opt-level = 3
