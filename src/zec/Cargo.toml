@@ -1,0 +1,35 @@
+[package]
+name = "zec"
+version = "0.6.0"
+edition = "2021"
+# step6: Ironwood (NU6.3) port. Real libraries: orchard 0.16.0 + zcash_primitives 0.31.0 + zcash_protocol 0.11.0.
+
+[dependencies]
+orchard = { version = "=0.16.0", default-features = false, features = ["std", "circuit", "multicore"] }
+zcash_primitives = { version = "=0.31.0", default-features = false, features = ["std", "circuits", "multicore"] }
+zcash_protocol = "=0.11.0"
+zcash_note_encryption = "=0.5.1"
+incrementalmerkletree = "0.9"
+reddsa = "0.6.1"
+pasta_curves = { version = "0.6", features = ["alloc"] }
+ff = "0.14"
+group = "0.14"
+rand = "0.10"
+rand_core = "0.10"
+# DLEQ side kept on the step-5 curve stack (pasta 0.5 / ff 0.13 / rand_core 0.6) - interop only via canonical bytes
+pasta05 = { package = "pasta_curves", version = "0.5", features = ["alloc"] }
+bls12_381 = { version = "0.8", features = ["experimental"] }
+rand_core06 = { package = "rand_core", version = "0.6", features = ["getrandom"] }
+blake2b_simd = "1.0.5"
+blake3 = "1"
+sha2 = "0.9"
+hex = "0.4.3"
+serde_json = "1"
+sapling = { package = "sapling-crypto", version = "=0.9.0", default-features = false }
+transparent = { package = "zcash_transparent", version = "=0.11.0", default-features = false }
+nonempty = "0.11"
+
+[profile.release]
+opt-level = 3
+[profile.dev]
+opt-level = 2
