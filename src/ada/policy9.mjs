@@ -11,8 +11,9 @@ const num = (x) => typeof x === "bigint" ? Number(x) : x;
 export const P9 = {
   // R5-H1: real profile. HOLD at most 90 min after the Commit is K deep; late-reveal cutoff 2 days before T3.
   real: { holdCapMs: 90 * 60e3, lateCutoffMs: 2 * 86400e3, tailMs: 7 * 86400e3 },
-  // step 10 (audit A1): rehearsal profile (K15/Z30, M from model/step9_model.py). A 2 h tail is infeasible: it needs cutoff ≥ M
-  // (54.9 min) and cap + cutoff + M < tail. 3 h works: cap 18 min (10 %), cutoff 60 min; 18 + 60 + 54.9 = 132.9 < 180.
+  // step 10 (audit A1): rehearsal profile (K15/Z30, M from model/step9_model.py). The check needs cutoff ≥ M (54.9 min) and
+  // cap + cutoff + M < tail, so tail > 2M ≈ 110 min. 2 h passes only with cap ≤ 10 min, cutoff 55 min (6 s slack). 3 h: cap 18 min
+  // (10 %), cutoff 60 min; 18 + 60 + 54.9 = 132.9 < 180 (47 min slack if the rehearsal's measured M grows).
   rehearsal: { tailMs: 3 * 3600e3, holdCapMs: 18 * 60e3, lateCutoffMs: 60 * 60e3, M: 54.9 * 60e3 },
   maxHoldFrac: 0.10,   // a hold cap may never exceed 10 % of the tail (sim: 120 s of 1200 s; real: 90 min ≪ 16.8 h)
   // R5-M2/M3: network constants (ZIP 259 / ZIP 218 / ZIP 2003). The ERA is never taken from config: it is derived.

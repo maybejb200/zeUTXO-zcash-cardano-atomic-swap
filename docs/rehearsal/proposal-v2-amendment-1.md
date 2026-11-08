@@ -5,9 +5,15 @@ This amendment changes one approved setting in `proposal-v2.md`. Nothing else in
 ## Why
 The Nov 8 audit (finding A1) found that the 2-hour refund tail cannot satisfy the wallet's own reveal-timing check
 (`revealParamsCheck` in `src/ada/policy9.mjs`). The check needs a late cutoff ≥ M and hold cap + cutoff + M < tail.
-With M = 54.9 min, a 2-hour tail would need a cutoff of at least 55 min and also a cap plus cutoff below 65.1 min, so
-no cap value works. The published values (cap 12 min, cutoff 34 min) are refused by the wallet. They also put the
-GO-RACE alarm (T3 − 55 min) before GO-LATE (T3 − 34 min).
+With M = 54.9 min, a 2-hour tail needs a cutoff of at least 54.9 min and a cap plus cutoff below 65.1 min. The published
+values (cap 12 min, cutoff 34 min) are refused by the wallet, and they put the GO-RACE alarm (T3 − 55 min) before GO-LATE
+(T3 − 34 min). A 2-hour tail can pass only with a cap of at most about 10 min and a cutoff of about 55 min, which leaves
+6 seconds of slack and makes GO-LATE and GO-RACE fire at almost the same moment. (Correction, Nov 8: an earlier version of
+this note and the audit said no 2-hour setting passes. That was wrong.)
+
+The smallest tail that passes at all is just over 2·M ≈ 110 min, with a near-zero hold cap. Any tail between that and
+3 h works if the cap and cutoff are chosen to fit, e.g. 2.5 h with cap 15 min and cutoff 60 min (20 min of slack).
+3 h was chosen because it leaves 47 min of slack in case the rehearsal measures slower blocks and M has to grow.
 
 ## Change
 | Setting | v2 | Amendment 1 |
