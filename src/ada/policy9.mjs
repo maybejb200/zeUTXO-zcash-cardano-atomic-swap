@@ -11,6 +11,9 @@ const num = (x) => typeof x === "bigint" ? Number(x) : x;
 export const P9 = {
   // R5-H1: real profile. HOLD at most 90 min after the Commit is K deep; late-reveal cutoff 2 days before T3.
   real: { holdCapMs: 90 * 60e3, lateCutoffMs: 2 * 86400e3, tailMs: 7 * 86400e3 },
+  // step 10 (audit A1): rehearsal profile (K15/Z30, M from model/step9_model.py). A 2 h tail is infeasible: it needs cutoff ≥ M
+  // (54.9 min) and cap + cutoff + M < tail. 3 h works: cap 18 min (10 %), cutoff 60 min; 18 + 60 + 54.9 = 132.9 < 180.
+  rehearsal: { tailMs: 3 * 3600e3, holdCapMs: 18 * 60e3, lateCutoffMs: 60 * 60e3, M: 54.9 * 60e3 },
   maxHoldFrac: 0.10,   // a hold cap may never exceed 10 % of the tail (sim: 120 s of 1200 s; real: 90 min ≪ 16.8 h)
   // R5-M2/M3: network constants (ZIP 259 / ZIP 218 / ZIP 2003). The ERA is never taken from config: it is derived.
   branch: { nu63: 0x37a5165b, nu7: 0x77190ad9 },
@@ -92,8 +95,17 @@ export function nu7Gate9({ st, node, measuredSpacing, spacingWindow, tailSeconds
 }
 /** R5-H1/L1: Reveal gate with a BOUNDED hold. Returns null (go), "GO-…" (go, with an alarm the caller must log/show),
  *  "HOLD: …" (wait, only inside the cap) or "REFUSE: …". Unknown inputs HOLD only inside the cap, never beyond it. */
-export function revealGate9({ commitConfs, K, commitSettledAt, now, T3, M, mempoolFill, directStake, holdCapMs, lateCutoffMs }) {
+export function revealGate9({ commitConfs, K, commitSettledAt, commitSeenAt, now, T3, M, mempoolFill, directStake, holdCapMs, lateCutoffMs }) {
   if (!isInt(K) || K < 1) return "REFUSE: settlement depth K missing or invalid";
+  // step 10 (audit A4): depth UNKNOWN (data source down) is not the same as depth < K. If the Commit was seen in a block, wait,
+  // but from the late cutoff on broadcast anyway: never revealing guarantees the loss at T3 (D36/D37). Never seen = REFUSE.
+  if (!isInt(commitConfs)) {
+    if (!fin(commitSeenAt)) return "REFUSE: Commit depth unknown and the Commit was never seen in a block: do not reveal b";
+    if (![now, T3, M, lateCutoffMs].every(fin)) return "GO-CAP: Commit depth and time/config inputs unknown — treated as cap reached (broadcast on every channel)";
+    if (now >= T3 - M) return "GO-RACE: ALARM past T3 − M with Commit depth unknown: broadcasting b on every channel (not revealing loses the ZEC for sure)";
+    if (now >= T3 - lateCutoffMs) return "GO-LATE: ALARM Commit depth unknown past the late-reveal cutoff (Commit was seen in a block): broadcasting b on every channel";
+    return "HOLD: Commit depth unknown (chain data source unavailable); retry, and broadcast regardless from the late-reveal cutoff";
+  }
   if (!isInt(commitConfs) || commitConfs < K) return `REFUSE: Commit not settled (${commitConfs} < ${K} confirmations): do not reveal b`;
   if (![now, T3, M, holdCapMs, lateCutoffMs].every(fin) || !fin(commitSettledAt)) return "GO-CAP: time/config inputs unknown — treated as hold cap reached (broadcast on every channel)";
   if (now >= T3 - M) return "GO-RACE: ALARM past T3 − M: Reveal and Escape may both be valid at T3; broadcasting b anyway on every channel (not revealing loses the ZEC for sure)";
@@ -114,7 +126,7 @@ export function revealParamsCheck({ tailMs, holdCapMs, lateCutoffMs, M }) {
   return null;
 }
 /** R5-M1: provenance of the Refunding UTxO, from the CREATING TX's inputs (not labels).
- *  ctx = { refund: {txHash, outputIndex, address, datum, assets}, creating: { inputs:[{txHash,index}], scriptRedeemers:[{txHash,index,tag}],
+ *  ctx = { refund: {txHash, outputIndex, address, datum, assets}, creating: { inputs:[{txHash,index}], scriptRedeemers:[{txHash,index,constr}],
  *          scriptOutputs:[index…] }, lock: {txHash, outputIndex} (the outref Bob verified at funding), scriptAddr, expectedDatum, lovelace, confs, K } */
 export function refundProvenance9(c) {
   if (!c || !c.refund || !c.creating || !c.lock) return "REFUSE: provenance inputs missing (fail closed)";
@@ -125,7 +137,7 @@ export function refundProvenance9(c) {
   const spendsLock = c.creating.inputs.some(i => i.txHash === c.lock.txHash && Number(i.index) === Number(c.lock.outputIndex));
   if (!spendsLock) return "REFUSE: the tx that created this UTxO did not spend my lock outref (look-alike, not my escrow)";
   const red = c.creating.scriptRedeemers.find(r => r.txHash === c.lock.txHash && Number(r.index) === Number(c.lock.outputIndex));
-  if (!red || red.tag !== 2) return "REFUSE: my lock was not spent with redeemer Notice";
+  if (!red || red.constr !== 2) return "REFUSE: my lock was not spent with redeemer Notice";   // constr = Action constructor index (Notice = 2)
   if (c.creating.scriptOutputs.length !== 1 || c.creating.scriptOutputs[0] !== c.refund.outputIndex) return "REFUSE: Refunding UTxO is not the single continuing output of the Notice";
   return null;
 }

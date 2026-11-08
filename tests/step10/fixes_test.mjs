@@ -4,7 +4,8 @@
 import fs from "fs";
 import path from "path";
 import { revealParamsCheck, revealGate9, refundProvenance9, P9 } from "../../src/ada/policy9.mjs";
-import { slotToMs, noticeWindow, decodeCreating, CML, Data, Constr } from "../../src/ada/chaintx.mjs";
+import * as CT from "../../src/ada/chaintx.mjs";
+const { slotToMs, noticeWindow, decodeCreating, CML, Data, Constr } = CT;
 
 const ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../..");
 const out = [];
@@ -35,11 +36,17 @@ const PREPROD = { zeroTime: 1654041600000 + 1728000000, zeroSlot: 86400, slotLen
   t("A2a", "slotToMs matches the ledger's slot→POSIX conversion on preprod (zeroSlot 86400)", slotToMs(slot, PREPROD) === lucidMs(slot, PREPROD),
     `slotToMs ${slotToMs(slot, PREPROD)} vs ledger ${lucidMs(slot, PREPROD)} (Δ ${(slotToMs(slot, PREPROD) - lucidMs(slot, PREPROD)) / 1000} s)`);
   const now = PREPROD.zeroTime + 7_777_777_437;   // a wall clock that is not on a slot boundary
-  const w = noticeWindow(now, 3600e3, PREPROD);
+  const w = noticeWindow(now, 3600e3, PREPROD), wT1 = noticeWindow(now, 3600e3, PREPROD, now);   // wT1: `now` is also the required minimum (T1)
   const onChainHi = lucidMs(lucidSlot(w.hi, PREPROD), PREPROD);
   t("A2b", "Notice upper bound written into t4 equals the on-chain upper bound (unaligned clock)", w.hi === onChainHi, `datum hi ${w.hi} vs on-chain ${onChainHi}`);
-  const onChainLo = lucidMs(lucidSlot(w.from, PREPROD), PREPROD);
-  t("A2c", "Notice lower bound is not moved below the requested time by slot rounding", onChainLo >= now, `requested ${now}, on-chain ${onChainLo}`);
+  const onChainLo = lucidMs(lucidSlot(wT1.from, PREPROD), PREPROD);
+  t("A2c", "Notice lower bound is not moved below the required T1 by slot rounding (T1 unaligned, sent in T1's slot)", onChainLo >= now, `T1 ${now}, on-chain ${onChainLo}`);
+  const onChainLoNow = lucidMs(lucidSlot(w.from, PREPROD), PREPROD);
+  t("A2f", "with no minimum at stake the lower bound stays admissible now (≤ the clock)", onChainLoNow <= now && now - onChainLoNow < PREPROD.slotLength, `now ${now}, on-chain ${onChainLoNow}`);
+  // A2e (added with the fix; there was no helper before, the wallet passed raw ms to validFrom): Escape/Forfeit lower bounds.
+  const lb = CT.lowerBoundMs ?? ((ms) => ms), T3u = PREPROD.zeroTime + 5_000_000_250;
+  const lo3 = lucidMs(lucidSlot(lb(T3u + 300, T3u, PREPROD), PREPROD), PREPROD);
+  t("A2e", "Escape/Forfeit lower bound at an unaligned T3/t4 is not floored below it (script checks lower ≥ T3)", lo3 >= T3u, `T3 ${T3u}, on-chain lower ${lo3}`);
   t("A2d", "Notice window keeps the requested TTL within one slot and under the 6 h script cap", w.hi - w.from <= 3600e3 && w.hi - w.from > 3600e3 - 2 * PREPROD.slotLength, `${w.hi - w.from} ms`);
 }
 

@@ -1,9 +1,9 @@
 // step 7: review4's 16 fail-open probes (tests/gates_test.mjs) PORTED to the step-7 fail-closed gates (ada/policy7.mjs),
 // plus extra fail-closed probes and positive controls. Every probe states the SAFE expectation. Pure functions, no network.
-import { valueCap7, nu7Gate7, nu7BlackoutBlocks, revealGate, commitGate, escapeGate, upgradeBlackoutGate, feedCheck, P7, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate } from "../ada/policy8.mjs";
-import * as policy7 from "../ada/policy8.mjs";
+import { valueCap7, nu7Gate7, nu7BlackoutBlocks, revealGate, commitGate, escapeGate, upgradeBlackoutGate, feedCheck, P7, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate } from "../../src/ada/policy8.mjs";
+import * as policy7 from "../../src/ada/policy8.mjs";
 import fs from "fs";
-const src = fs.readFileSync(new URL("../ada/e2e4.mjs", import.meta.url), "utf8");
+const src = fs.readFileSync(new URL("../../src/ada/e2e4.mjs", import.meta.url), "utf8");
 const out = []; const t = (id, name, safe, detail) => { out.push({ id, name, safe: !!safe, detail: String(detail) }); console.log(`  [${safe ? "safe" : "FAILS OPEN"}] ${id} ${name} — ${detail}`); };
 const now = Date.now();
 const FEED = (o = {}) => ({ asOf: now - 3600e3, pools: [0.33, 0.145, 0.12, 0.1], zecUsd: 1254.54, adaUsd: 0.188, ...o });
@@ -83,4 +83,4 @@ for (const [id, nm, v] of pos) t(id, `positive control: ${nm} → allowed`, v ==
 const bad = out.filter(o => !o.safe).map(o => o.id);
 const ported = out.filter(o => /^(V|N|P|G)/.test(o.id));
 console.log(`\n${out.length} probes (${ported.length} ported from review4), ${out.length - bad.length} safe, ${bad.length} fail open: ${bad.join(", ")}`);
-fs.writeFileSync(new URL("../results/gates8_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
+fs.writeFileSync(new URL("../../results/step9/gates8_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
