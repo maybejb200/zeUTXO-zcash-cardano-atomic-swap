@@ -3,7 +3,7 @@
 This amendment changes one approved setting in `proposal-v2.md`. Nothing else in v2 changes.
 
 ## Why
-The Nov 8 audit (finding A1) found that the 2-hour refund tail cannot satisfy the wallet's own reveal-timing check
+The Nov 8 audit (finding A1) found that the published 2-hour rehearsal settings fail the wallet's own reveal-timing check
 (`revealParamsCheck` in `src/ada/policy9.mjs`). The check needs a late cutoff ≥ M and hold cap + cutoff + M < tail.
 With M = 54.9 min, a 2-hour tail needs a cutoff of at least 54.9 min and a cap plus cutoff below 65.1 min. The published
 values (cap 12 min, cutoff 34 min) are refused by the wallet, and they put the GO-RACE alarm (T3 − 55 min) before GO-LATE
