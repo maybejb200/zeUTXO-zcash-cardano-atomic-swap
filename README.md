@@ -67,6 +67,10 @@ These files were copied from a working tree. Some scripts still use absolute pat
 - Cardano: `cd src/ada && npm ci && cd onchain && aiken check`; then e.g. `node e2e9.mjs all`
 - Zcash: `cd src/zec && cargo build --release && cargo run --release --example pok_isolated`
 - Model: `cd src/model && python3 step9_model.py`
+- Step 10 (Nov 8 audit fixes), from a fresh clone, after `npm ci` in `src/ada` and `cargo build --release` in `src/zec`:
+  - `node tests/step10/fixes_test.mjs` (regression tests for audit findings A1–A4) and `node tests/step9/gates9_test.mjs`
+  - `cd src/ada && node e2e9.mjs all` (step 9 sim profile) and `E2E_PROFILE=rehearsal node e2e9.mjs all` (NU7, K=15, Z=30)
+  - Summaries are in `results/step10/`. `aiken check` was not re-run in step 10 (the escrow is unchanged).
 All keys are generated fresh at runtime. None are stored in the repo.
 
 ## License

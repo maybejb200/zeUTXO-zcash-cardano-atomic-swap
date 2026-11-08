@@ -1,0 +1,20 @@
+[pass] A1a published rehearsal profile (rehearsal_nu7_K15_Z30_tail3h_min) passes revealParamsCheck — tail 180 cap 18 cutoff 60 M 54.9 min
+[pass] A1b policy9 carries the rehearsal profile and it passes revealParamsCheck — {"tailMs":10800000,"holdCapMs":1080000,"lateCutoffMs":3600000,"M":3294000}
+[pass] A1c policy9 rehearsal profile equals the model output — policy {"tailMs":10800000,"holdCapMs":1080000,"lateCutoffMs":3600000,"M":3294000} vs model {"tailMs":10800000,"holdCapMs":1080000,"lateCutoffMs":3600000,"M":3294000}
+[pass] A2a slotToMs matches the ledger's slot→POSIX conversion on preprod (zeroSlot 86400) — slotToMs 1765683200000 vs ledger 1765683200000 (Δ 0 s)
+[pass] A2b Notice upper bound written into t4 equals the on-chain upper bound (unaligned clock) — datum hi 1663550977000 vs on-chain 1663550977000
+[pass] A2c Notice lower bound is not moved below the required T1 by slot rounding (T1 unaligned, sent in T1's slot) — T1 1663547377437, on-chain 1663547378000
+[pass] A2f with no minimum at stake the lower bound stays admissible now (≤ the clock) — now 1663547377437, on-chain 1663547377000
+[pass] A2e Escape/Forfeit lower bound at an unaligned T3/t4 is not floored below it (script checks lower ≥ T3) — T3 1660769600250, on-chain lower 1660769601000
+[pass] A2d Notice window keeps the requested TTL within one slot and under the 6 h script cap — 3600000 ms
+[pass] A3a legacy array redeemers: the lock's Notice redeemer is found — [{"txHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","index":0,"constr":2}]
+[pass] A3b Conway map redeemers: the lock's Notice redeemer is found — [{"txHash":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","index":0,"constr":2}]
+[pass] A3c refundProvenance9 accepts a genuine Notice whose redeemers are map-encoded
+[pass] A3d …and still refuses when the lock was spent with another redeemer (RefundReveal = 3) — REFUSE: my lock was not spent with redeemer Notice
+[pass] A4a Commit seen in a block, depth now unknown, past the late cutoff: broadcast (GO-…) — GO-LATE: ALARM Commit depth unknown past the late-reveal cutoff (Commit was seen in a block): broadcasting b on every channel
+[pass] A4b …and past T3 − M: GO-RACE alarm, not REFUSE — GO-RACE: ALARM past T3 − M with Commit depth unknown: broadcasting b on every channel (not revealing loses the ZEC for sure)
+[pass] A4c depth unknown before the cutoff: HOLD (wait for the data source), not a permanent REFUSE — HOLD: Commit depth unknown (chain data source unavailable); retry, and broadcast regardless from the late-reveal cutoff
+[pass] A4d Commit never seen in any block: still REFUSE (b must never go out without a Claimed escrow) — REFUSE: Commit depth unknown and the Commit was never seen in a block: do not reveal b
+[pass] A4e known depth < K: still REFUSE (the settlement rule is unchanged) — REFUSE: Commit not settled (14 < 15 confirmations): do not reveal b
+
+18/18 pass

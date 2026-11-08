@@ -19,7 +19,7 @@ js = """import {zNeeded9} from '../ada/policy9.mjs'; const o={};
 for (const p of [300,500,800,1043,1254.54,2000]) o[p]={v1_15000:zNeeded9({usd:15000,zecUsd:p,era:'nu7',tier:'v1',q:0.33}),
  v1_5000:zNeeded9({usd:5000,zecUsd:p,era:'nu7',tier:'v1',q:0.33}), rehearsal_500:zNeeded9({usd:500,zecUsd:p,era:'nu7',tier:'rehearsal',q:0.33})};
 console.log(JSON.stringify(o));"""
-ztab = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, cwd=".").stdout)
+ztab = json.loads(subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, cwd=__import__("os").path.dirname(__import__("os").path.abspath(__file__))).stdout)   # step 10: cwd-independent
 day = 1440
 out = {"derivation": __doc__, "miner_reward_zec_per_block_nu7": round(R, 5),
        "econ_Z_hand_check_15000usd_at_1254.54": math.ceil(2 * 15000 / (R * 1254.54)),
