@@ -60,3 +60,7 @@ chain*/
 .vscode/
 .idea/
 *.swp
+
+# raw per-run outputs of e2e9 (summaries go to results/)
+src/results/
+src/zec/target

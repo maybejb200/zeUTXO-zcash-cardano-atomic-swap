@@ -12,6 +12,7 @@ import { ledgerEd25519 } from "./nodecheck.mjs";
 import { valueCapCheck, capUsd, VC } from "./valuecap.mjs";
 import { valueCap7, nu7Gate7, nu7BlackoutBlocks, commitGate, revealGate, escapeGate, upgradeBlackoutGate, swapUsd, P7, minZ, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate, NOTICE_RANGE_MAX } from "./policy8.mjs";
 import { revealGate9, revealParamsCheck, refundProvenance9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, minAdaLock9, zebraVersionGate, P9 } from "./policy9.mjs";
+import { slotToMs, noticeWindow, decodeCreating } from "./chaintx.mjs";
 import { createRequire } from "module";
 const sodium = createRequire(import.meta.url)("libsodium-wrappers-sumo"); await sodium.ready;
 import { execFileSync } from "child_process";
@@ -278,9 +279,10 @@ const commitTx = (S, sig, { upper = S.T1 - 1000, signer, out = null, utxo = null
 const revealTx = (S, b, { utxo = null, signer } = {}) => (tx) => tx.collectFrom([utxo ?? S.claimed], Reveal(b)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.B));
 const escapeTx = (S, from, { utxo = null, signer } = {}) => (tx) => tx.collectFrom([utxo ?? S.claimed], Escape).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A)).validFrom(from);
 // step 8: Notice spends the OPEN escrow and recreates it with phase=2 and t4 = upper + TAIL (validity [from, to]).
+const slotCfg = (S) => ({ zeroTime: S.L.zeroTime, zeroSlot: 0, slotLength: 1000 });   // emulator ("Custom") slot config
 const refundingDatum = (S, to) => datumOf(S, { phase: 2n, t4: BigInt(to + TAIL) });
 const noticeTx = (S, from, { to = null, signer, utxo = null, out = null, lovelace = null } = {}) => (tx) => {
-  const u = utxo ?? S.escrow; const hi = to ?? from + NOTICE_TTL;
+  const u = utxo ?? S.escrow; const w = to !== null ? { from, hi: to } : noticeWindow(from, NOTICE_TTL, slotCfg(S)); const hi = w.hi; from = w.from;
   return tx.collectFrom([u], Notice).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A))
     .pay.ToContract(S.scriptAddr, { kind: "inline", value: out ?? refundingDatum(S, hi) }, { lovelace: lovelace ?? BigInt(u.assets.lovelace) }).validFrom(from).validTo(hi); };
 // refundTx = RefundReveal{a} (on the Refunding UTxO by default; tests point it at Open/Claimed to show the script refuses)
@@ -385,20 +387,12 @@ async function bobRedeem(S, R, b, { ignoreRule = false, maxBlocks = 60, hook = n
 // resubmit until it is K deep. Either party's settled Notice counts (Bob may Notice from T2). REVEAL a: only on the
 // phase-2 output of that settled Notice, with the exact expected datum (t4 = its upper + TAIL) and value, and only while
 // now ≤ t4 − M; then resubmit until settled — there is no deadline (t4 is ≥ TAIL away).
-function decodeCreating(tx, scriptAddr) {   // inputs (canonical order), script redeemers keyed by the outref they spend, outputs at the script
-  const b = tx.body(), ins = []; for (let i = 0; i < b.inputs().len(); i++) { const x = b.inputs().get(i); ins.push({ txHash: x.transaction_id().to_hex(), index: Number(x.index()) }); }
-  const sorted = [...ins].sort((p, q) => p.txHash < q.txHash ? -1 : p.txHash > q.txHash ? 1 : p.index - q.index);
-  const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(), scriptRedeemers = [];
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const r = reds.get(k); if (r.tag() !== 0) continue; const d = Data.from(r.data().to_cbor_hex()); const at = sorted[Number(r.index())]; if (at) scriptRedeemers.push({ ...at, tag: d.index }); }
-  const scriptOutputs = []; for (let i = 0; i < b.outputs().len(); i++) if (b.outputs().get(i).address().to_bech32() === scriptAddr) scriptOutputs.push(i);
-  return { inputs: ins, scriptRedeemers, scriptOutputs };
-}
 async function ownRefunding(S) {
   const us = await S.L.em.getUtxos(S.scriptAddr);
   S.provenanceRefusals = [];
   for (const u of us) { const tx = S.L.log.find(t => t.hash === u.txHash); if (!tx) continue;   // step 9 (R5-M1): no labels — provenance from the creating tx
     const ctx = CML.Transaction.from_cbor_hex(tx.txHex); const ttl = ctx.body().ttl(); if (ttl === undefined) { S.provenanceRefusals.push("no upper bound"); continue; }
-    const ttlMs = S.L.zeroTime + Number(ttl) * 1000;
+    const ttlMs = slotToMs(ttl, slotCfg(S));
     const creating = decodeCreating(ctx, S.scriptAddr);
     const why = refundProvenance9({ refund: { ...u }, creating, lock: { txHash: S.escrow.txHash, outputIndex: S.escrow.outputIndex }, scriptAddr: S.scriptAddr,
       expectedDatum: refundingDatum(S, ttlMs), lovelace: S.escrow.assets.lovelace, confs: Math.max(S.L.confirmations(u.txHash), K), K });   // depth is checked by the callers
@@ -1656,7 +1650,24 @@ async function r9MinAda() {
   return { R };
 }
 
-const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: nu7Cases, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: r9Era, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda };
+// step 10 (audit A2): a wallet clock that is not on a slot boundary. Before the fix the Notice datum used the raw ms upper
+// bound while the ledger floors it to a slot, so the script rejected Alice's (and Bob's) Notice outright.
+async function r10Unaligned() {
+  const R = new Results("r10_unaligned"); console.log("== step 10 (audit A2): Notice built from a clock that is not on a slot boundary");
+  const S = await start("r10-unaligned", R);
+  const aliceX = secret(S, "alice");
+  await S.L.untilMs(S.T1 + 5000);
+  const from = S.L.now() + 437;   // real wall clocks are not slot-aligned
+  let r; try { r = await signSubmit(S, await build(S, S.A, noticeTx(S, from)), S.A, "notice_unaligned"); } catch (e) { r = { rejected: true, reason: e.message }; }
+  R.rec("Notice built from an unaligned clock is admitted (datum t4 = the on-chain upper bound + tail)", "accept", r && !r.rejected, r?.reason);
+  await S.L.awaitBlock(K + 1);
+  const o = await ownRefunding(S);
+  R.rec("Alice's provenance check recognises it as her own Refunding UTxO, K deep", "accept", !!o && S.L.confirmations(o.hash) >= K, (S.provenanceRefusals ?? []).join(" | "));
+  if (o) { const rr = await aliceRefundReveal(S, R, aliceX); R.rec("…and her RefundReveal{a} settles", "accept", rr.settled, rr.why ?? rr.refused); }
+  return { R, S };
+}
+
+const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: nu7Cases, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: r9Era, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned };
 const out = {}; const t0 = Date.now();
 for (const [k, f] of Object.entries(all)) {
   if (which !== "all" && which !== k) continue;
