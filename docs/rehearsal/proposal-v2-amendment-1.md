@@ -1,4 +1,4 @@
-# Rehearsal proposal v2, amendment 1 (Nov 8, 2026): needs John's re-approval
+# Rehearsal proposal v2, amendment 1 (Nov 8, 2026): approved by John (3-hour tail)
 
 This amendment changes one approved setting in `proposal-v2.md`. Nothing else in v2 changes.
 
@@ -31,3 +31,7 @@ Each rehearsal swap still takes well under a day, so the Zebra end-of-support ma
 ## Approval sentence change
 In proposal-v2 §7, replace "Use a rehearsal-only 2-hour refund tail" with
 "Use a rehearsal-only 3-hour refund tail (hold cap 18 min, late cutoff T3 − 60 min) per proposal-v2-amendment-1.md".
+
+## Status
+Approved by John on Nov 8, 2026 ("Go with 3"), after the 2 h, 2.5 h and 3 h options above were laid out. The rehearsal uses
+the 3-hour tail, 18-minute hold cap and T3 − 60 min late cutoff.
