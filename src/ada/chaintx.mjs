@@ -33,6 +33,17 @@ export function noticeWindow(from, ttlMs, slotCfg, minLo) {
   return { from: lo, hi: validToMs(lo + ttlMs, slotCfg) };
 }
 
+/** Every redeemer of `tx` as plain objects { tag, index, cborHex }, whether the witness set encodes them as a legacy array
+ *  or as a Conway map (review 6 R6-M2: the secret-extraction watchers and the Ed25519 overlay read only the legacy array).
+ *  tag = the ledger's redeemer purpose (Spend = 0); index = position in the canonical (sorted) input order for Spend. */
+export function txRedeemers(tx) {
+  const flat = tx.witness_set().redeemers()?.to_flat_format(), out = [];
+  for (let k = 0; k < (flat?.len() ?? 0); k++) { const r = flat.get(k); out.push({ tag: r.tag(), index: Number(r.index()), cborHex: r.data().to_cbor_hex() }); }
+  return out;
+}
+/** Decoded redeemer data (Lucid Constr) of every redeemer in `tx`, either encoding. */
+export const txRedeemerData = (tx) => txRedeemers(tx).map(r => Data.from(r.cborHex));
+
 /** Decode the tx that created a UTxO: inputs (as listed), Spend redeemers keyed by the outref they spend (canonical input
  *  order), and the indices of outputs at `scriptAddr`. `constr` = the redeemer's constructor index (Notice = 2); this is not the
  *  ledger's redeemer "tag" (purpose: Spend = 0), which is filtered on above. */

@@ -5,6 +5,7 @@
 import { Emulator, CML, createCostModels, getAddressDetails, PROTOCOL_PARAMETERS_DEFAULT, Data } from "@lucid-evolution/lucid";
 import * as UPLC from "@lucid-evolution/uplc";
 import fs from "fs";
+import { txRedeemers } from "./chaintx.mjs";
 
 export function mainnetParams(path = new URL("./mainnet_params_koios.json", import.meta.url)) {
   const kp = JSON.parse(fs.readFileSync(path));
@@ -228,10 +229,9 @@ export class StrictLedger {
       const tx = CML.Transaction.from_cbor_hex(t.txHex); const ins = tx.body().inputs();
       for (let i = 0; i < ins.len(); i++) {
         if (ins.get(i).transaction_id().to_hex() === txHash && Number(ins.get(i).index()) === outputIndex) {
-          const reds = tx.witness_set().redeemers(); const legacy = reds?.as_arr_legacy_redeemer();
-          const all = []; if (legacy) for (let k = 0; k < legacy.len(); k++) all.push(legacy.get(k));
-          const r = all.find(r => Number(r.index()) === i && r.tag() === 0) ?? all[0];
-          return { tx: t, redeemer: Data.from(r.data().to_cbor_hex()) };
+          const all = txRedeemers(tx);   // step 10 (review 6 R6-M2): legacy array or Conway map
+          const r = all.find(r => r.index === i && r.tag === 0) ?? all[0];
+          return { tx: t, redeemer: Data.from(r.cborHex) };
         }
       }
     }

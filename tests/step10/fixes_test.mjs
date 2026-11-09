@@ -1,11 +1,11 @@
-// Regression tests for the Nov 8 2026 audit findings A1–A4 (wallet-side; the on-chain escrow is unchanged).
+// Regression tests for the Nov 8 2026 audit findings A1–A4 and review 6 R6-M2 (R6-M3 is e2e9 group r10_review6) (wallet-side; the on-chain escrow is unchanged).
 // Each test was written to FAIL on commit 1697e21 and PASS after the fix. Run: node tests/step10/fixes_test.mjs
 // (needs `npm ci` in src/ada). Exit code 1 if any test fails.
 import fs from "fs";
 import path from "path";
 import { revealParamsCheck, revealGate9, refundProvenance9, P9 } from "../../src/ada/policy9.mjs";
 import * as CT from "../../src/ada/chaintx.mjs";
-const { slotToMs, noticeWindow, decodeCreating, CML, Data, Constr } = CT;
+const { slotToMs, noticeWindow, decodeCreating, txRedeemers, txRedeemerData, CML, Data, Constr } = CT;
 
 const ROOT = path.resolve(new URL(".", import.meta.url).pathname, "../..");
 const out = [];
@@ -85,6 +85,18 @@ for (const [fmt, useMap] of [["legacy array", false], ["Conway map", true]]) {
     scriptAddr: addr, expectedDatum: datum, lovelace: 1_000_000_000n, confs: 15, K: 15 });
   t("A3d", "…and still refuses when the lock was spent with another redeemer (RefundReveal = 3)", /redeemer Notice/.test(v3 ?? ""), v3);
 }
+
+// ---- Review 6 R6-M2: the secret watchers / Ed25519 overlay read redeemers through txRedeemers (both encodings) ----
+for (const [fmt, useMap] of [["legacy array", false], ["Conway map", true]]) {
+  const { tx } = mkTx(useMap, 2);
+  const rs = typeof txRedeemers === "function" ? txRedeemers(tx) : [];
+  const ds = typeof txRedeemerData === "function" ? txRedeemerData(tx) : [];
+  t(`R6${useMap ? "b" : "a"}`, `${fmt}: txRedeemers returns the Spend redeemer (tag 0, sorted index 1) and its data decodes to constructor 2`,
+    rs.length === 1 && rs[0].tag === 0 && rs[0].index === 1 && ds[0]?.index === 2, JSON.stringify(rs));
+}
+{ const ins = CML.TransactionInputList.new(); ins.add(CML.TransactionInput.new(CML.TransactionHash.from_hex("aa".repeat(32)), 0n));
+  const tx = CML.Transaction.new(CML.TransactionBody.new(ins, CML.TransactionOutputList.new(), 0n), CML.TransactionWitnessSet.new(), true, undefined);
+  t("R6c", "a tx with no redeemers yields an empty list (no throw)", typeof txRedeemers === "function" && txRedeemers(tx).length === 0); }
 
 // ---- A4: Commit depth unknown must not mean "never reveal" ----
 {

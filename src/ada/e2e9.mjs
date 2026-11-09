@@ -12,7 +12,7 @@ import { ledgerEd25519 } from "./nodecheck.mjs";
 import { valueCapCheck, capUsd, VC } from "./valuecap.mjs";
 import { valueCap7, nu7Gate7, nu7BlackoutBlocks, commitGate, revealGate, escapeGate, upgradeBlackoutGate, swapUsd, P7, minZ, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate, NOTICE_RANGE_MAX } from "./policy8.mjs";
 import { revealGate9, revealParamsCheck, refundProvenance9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, minAdaLock9, zebraVersionGate, P9 } from "./policy9.mjs";
-import { slotToMs, noticeWindow, decodeCreating, lowerBoundMs } from "./chaintx.mjs";
+import { slotToMs, noticeWindow, decodeCreating, lowerBoundMs, txRedeemerData } from "./chaintx.mjs";
 import { createRequire } from "module";
 const sodium = createRequire(import.meta.url)("libsodium-wrappers-sumo"); await sodium.ready;
 import { execFileSync } from "child_process";
@@ -144,7 +144,9 @@ function paramsCheck(P) {
   if (P.zec_branch !== 0x37a5165b && P.zec_branch !== 0x77190ad9) return "zec_branch must be NU6.3 or NU7";
   const now = Date.now();
   const v = valueCap7({ lovelace: P.lovelace, zats: P.zats, zDepth: P.z_depth, kDepth: P.k_depth, era: PROFILE.era, tier: PROFILE.tier, feed: P7feed === undefined ? FEED() : P7feed, now, exposureSoFar: P7exposure }); if (v) return v;
-  const u = upgradeBlackoutGate({ now, windowEnd: now + (P.t2 - P.t0) + T0_OFF, events: P7upgrades === undefined ? UPGRADES() : P7upgrades }); if (u) return u;
+  // step 10 (review 6 R6-M3): the scheduled-upgrade blackout covers the whole swap to T3 (the refund tail), as the NU7 gate
+  // already does (R5-L2); it used to stop at T2. upgradeBlackoutGate adds its own P7.blackoutH margin on both sides.
+  const u = upgradeBlackoutGate({ now, windowEnd: now + (P.t3 - P.t0) + T0_OFF, events: P7upgrades === undefined ? UPGRADES() : P7upgrades }); if (u) return u;
   return null;
 }
 // step 8 timing rule (spec v0.7 §T): T1 ≥ T0+1+Mc+R, T2 ≥ T1+S+1+R+Mc (liveness only), T3 ≥ T1+T3min (T3−T1 is also the refund tail)
@@ -163,6 +165,8 @@ async function as(S, acct) { S.lucid.selectWallet.fromPrivateKey(acct.privateKey
 function swapIdOf(S, who = "bob") {   // step 4: the swap id each party computed itself in setup (zec setup → view.json)
   return rd(path.join(S.dir, `${who}/view.json`)).swap_id;
 }
+// Size of this swap's Refunding datum with the widest t4 a POSIX-ms value can take (8-byte CBOR int), for the W.1 min-ADA rule.
+const refundingDatumBytes = (S) => datumOf(S, { phase: 2n, t4: BigInt(Number.MAX_SAFE_INTEGER) }).length / 2;
 function datumOf(S, over = {}) {
   const pa = rd(path.join(S.dir, "alice/pub.json")), pb = rd(path.join(S.dir, "bob/pub.json"));
   const f = { alice: pkhOf(S.A), bob: pkhOf(S.B), go_vk: S.go.vk, net: BigInt(NETWORK_ID), swap_id: S.swapId, a_c: pa.Q, b_c: pb.Q, t1: BigInt(S.T1), t2: BigInt(S.T2), t3: BigInt(S.T3), phase: 0n, t4: 0n, ...over };
@@ -172,6 +176,7 @@ async function refreshParams(S) { await S.lucid.switchProvider(S.L.em); }   // w
 async function lock(S, R, over = {}) {
   if (S.L.now() !== S.tSetup) throw new Error("lock: ledger time moved since setup; T0/T1/T2 in the transcript would be stale");
   S.swapId = swapIdOf(S, "alice");
+  { const m = minAdaLock9({ lovelace: ADA_LOCK, refundingDatumBytes: refundingDatumBytes(S) }); if (m) throw new Error("lock: " + m); }   // step 10 (review 6 R6-M3): W.1 before Alice locks
   const lucid = await as(S, S.A);
   const tx = await lucid.newTx().pay.ToContract(S.scriptAddr, { kind: "inline", value: datumOf(S, over) }, { lovelace: ADA_LOCK }).complete();
   const r = await S.L.submit((await tx.sign.withWallet().complete()).toCBOR(), "lock");
@@ -215,6 +220,7 @@ function bobChecksLock(S, { needSettled = true } = {}) {
   if (ad.stakeCredential) return "stake credential not agreed (escrow address must carry no stake credential)";
   if (u.address !== S.scriptAddr) return "wrong script address";
   if (Object.keys(u.assets).length !== 1 || BigInt(u.assets.lovelace) !== BigInt(rd(path.join(S.dir, "params.json")).lovelace)) return "wrong ADA amount / extra assets";
+  { const m = minAdaLock9({ lovelace: u.assets.lovelace, refundingDatumBytes: refundingDatumBytes(S) }); if (m) return m; }   // step 10 (review 6 R6-M3): W.1 min-ADA
   if (!u.datum) return u.datumHash ? "datum is a hash, not inline" : "no datum";
   const exp = expectedDatum(S);
   if (u.datum !== exp) return `datum bytes differ from the expected canonical datum: ${datumDiag(u.datum, exp)}`;
@@ -252,8 +258,12 @@ function zecGate(S) {   // step 6 R3-H1 + step 7 (review4 F4): own node, measure
   const node = nodeEra9(rpc, { configBranch: P.zec_branch, configEra: S.configEra, configSpacingS: S.configSpacingS });   // step 9 (R5-M2): era from the node
   if (node.refuse) return node.refuse;
   S.nodeEra = node;
-  return nu7Gate9({ st: rpc, node, measuredSpacing: st.measured_mean_spacing_s, spacingWindow: st.window, tailSeconds: REAL_TAIL_S, preT1Seconds: REAL_PRE_S,
+  const g = nu7Gate9({ st: rpc, node, measuredSpacing: st.measured_mean_spacing_s, spacingWindow: st.window, tailSeconds: REAL_TAIL_S, preT1Seconds: REAL_PRE_S,
     eosHeight: "eos" in meta ? meta.eos : (st.tip + meta.eosOffset), nodeSupportsNu7: S.nodeSupportsNu7 ?? true });
+  if (g) return g;
+  // step 10 (review 6 R6-M3): re-run the value cap with the era the NODE reports (valueCap9, R5-M2/M3). Setup's paramsCheck only
+  // has the configured era (valueCap7), because the node is not consulted until here, before Bob funds ZEC.
+  return valueCap9({ lovelace: P.lovelace, zats: P.zats, zDepth: P.z_depth, kDepth: P.k_depth, node, tier: PROFILE.tier, feed: P7feed === undefined ? FEED() : P7feed, now: Date.now(), exposureSoFar: P7exposure });
 }
 // v1 real window, setup → T2 = 252.1 min (model/step7_model.py, gate profile) + 24 h: the T3 tail is not blacked out (D19)
 const REAL_SWAP_S = Math.round(252.1 * 60) + 24 * 3600;
@@ -495,11 +505,10 @@ async function aliceTakesZec(S, R, label = "Sweep (Alice, a+b)") {
 }
 
 async function aliceTakesZecPeek(S) { const u = S.claimed; const sp = S.L.spendingRedeemer(u.txHash, u.outputIndex); const b = sp.redeemer.fields[0]; return { b, bHex: leHex(b) }; }
-const secretInMempool = (S, x) => S.L.seen.some(t => { const tx = CML.Transaction.from_cbor_hex(t.txHex); const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer();
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.fields?.some(f => typeof f === "bigint" && f === x)) return true; } return false; });
+// step 10 (review 6 R6-M2): the watchers below read legacy-array AND Conway map redeemers (txRedeemerData)
+const secretInMempool = (S, x) => S.L.seen.some(t => txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex)).some(d => d.fields?.some(f => typeof f === "bigint" && f === x)));
 // step 8: any broadcast RefundReveal{a} (redeemer 3), whatever its label
-function refundA(S) { for (const t of S.L.seen) { const tx = CML.Transaction.from_cbor_hex(t.txHex);
-  const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(); for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 3) return d.fields[0]; } } return null; }
+function refundA(S) { for (const t of S.L.seen) for (const d of txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex))) if (d.index === 3) return d.fields[0]; return null; }
 // A bribed producer can include ANY valid tx regardless of what other mempools hold, so script-level rejections are
 // tested by submitting with the conflicting censored tx set aside (restored afterwards). (review4 helper)
 async function asideFrom(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
@@ -1244,8 +1253,7 @@ async function zecNodeCases() {
 
 
 // ======================= step 8: griefing, refund-trap fork, censorship of both refund steps, races =======================
-const aliceSeesB = (S) => { for (const t of S.L.seen) { const tx = CML.Transaction.from_cbor_hex(t.txHex); const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer();
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 1 && typeof d.fields[0] === "bigint") return d.fields[0]; } } return null; };
+const aliceSeesB = (S) => { for (const t of S.L.seen) for (const d of txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex))) if (d.index === 1 && typeof d.fields[0] === "bigint") return d.fields[0]; return null; };   // step 10 (R6-M2): either encoding
 // A bribed producer can include ANY valid tx regardless of what other mempools hold (conflicting censored txs set aside).
 async function asideFrom8(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
   try { return await fn(); } finally { const now = new Set(S.L.pending.map(p => p.hash)); S.L.pending = S.L.pending.filter(p => !keep.some(k => [...k.inputs].some(i => p.inputs.has(i)))).concat(keep.filter(k => !now.has(k.hash))); } }
@@ -1675,7 +1683,52 @@ async function r10Unaligned() {
   return { R, S };
 }
 
-const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: async () => { PIN_NU63 = true; try { return await nu7Cases(); } finally { PIN_NU63 = false; } }, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: async () => { PIN_NU63 = true; try { return await r9Era(); } finally { PIN_NU63 = false; } }, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned };
+// step 10 (review 6 R6-M2): a Reveal{b} / RefundReveal{a} whose redeemers are Conway map-encoded must still be seen by every
+// watcher that pulls a secret out of a tx (before: only the legacy array was read, so the secret went unnoticed).
+function mapRedeemerTx(outref, constr, fields) {
+  const ins = CML.TransactionInputList.new(); ins.add(CML.TransactionInput.new(CML.TransactionHash.from_hex(outref.txHash), BigInt(outref.outputIndex)));
+  const outs = CML.TransactionOutputList.new(); outs.add(CML.TransactionOutput.new(CML.Address.from_bech32(SCRIPT_ADDR_ANY()), CML.Value.from_coin(2_000_000n)));
+  const m = CML.MapRedeemerKeyToRedeemerVal.new();
+  m.insert(CML.RedeemerKey.new(CML.RedeemerTag.Spend, 0n), CML.RedeemerVal.new(CML.PlutusData.from_cbor_hex(Data.to(new Constr(constr, fields))), CML.ExUnits.new(1_000_000n, 500_000_000n)));
+  const ws = CML.TransactionWitnessSet.new(); ws.set_redeemers(CML.Redeemers.new_map_redeemer_key_to_redeemer_val(m));
+  return CML.Transaction.new(CML.TransactionBody.new(ins, outs, 300_000n), ws, true, undefined).to_cbor_hex();
+}
+const SCRIPT_ADDR_ANY = () => validatorToAddress("Custom", SCRIPT);
+async function r10Review6() {
+  const R = new Results("r10_review6"); console.log("== step 10 (review 6): map-encoded redeemers in the secret watchers (R6-M2); policy9 gates wired in (R6-M3)");
+  { const S = await newSwap("r10-r6-map");
+    const claimed = { txHash: "c1".repeat(32), outputIndex: 0 }, refunding = { txHash: "c2".repeat(32), outputIndex: 0 };
+    const b = 0x0123456789abcdefn * 1000003n, a = 0x0fedcba987654321n * 999983n;
+    const extra = [{ txHex: mapRedeemerTx(claimed, 1, [b]), label: "reveal_map", hash: "r6m2-reveal" }, { txHex: mapRedeemerTx(refunding, 3, [a]), label: "refund_reveal_map", hash: "r6m2-refund" }];
+    S.L.seen.push(...extra);
+    try {
+      R.rec("Reveal{b} with map-encoded redeemers: Alice's watcher (aliceSeesB) extracts b", "accept", aliceSeesB(S) === b, aliceSeesB(S));
+      R.rec("RefundReveal{a} with map-encoded redeemers: Bob's watcher (refundA) extracts a", "accept", refundA(S) === a, refundA(S));
+      R.rec("mempool secret scan (secretInMempool) sees b and a in map-encoded txs", "accept", secretInMempool(S, b) && secretInMempool(S, a));
+      const sp = S.L.spendingRedeemer(claimed.txHash, claimed.outputIndex);
+      R.rec("ledger watcher (spendingRedeemer) decodes the map-encoded Reveal{b} on the Claimed outref", "accept", sp?.redeemer?.index === 1 && sp.redeemer.fields[0] === b, sp && Data.to(sp.redeemer));
+    } finally { S.L.seen = S.L.seen.filter(t => !extra.includes(t)); }
+  }
+  { const S = await newSwap("r10-r6-blackout"); const P = rd(path.join(S.dir, "params.json"));
+    const H = P7.blackoutH * 3600e3, now = Date.now();
+    const at = now + (P.t2 - P.t0) + T0_OFF + H + Math.round((P.t3 - P.t2) / 2);   // after the old window end (T2 + margin), before T3 + margin
+    P7upgrades = [{ name: "Cardano hard fork (test, between T2 and T3)", atMs: at }]; const u = paramsCheck(P); P7upgrades = undefined;
+    R.rec("an upgrade scheduled between T2 and T3 (+ margin) is inside the blackout: refused at setup", "reject /upgrade blackout/", /upgrade blackout/.test(u ?? ""), u);
+    P7upgrades = [{ name: "far upgrade", atMs: now + (P.t3 - P.t0) + T0_OFF + H + 3600e3 }]; const u2 = paramsCheck(P); P7upgrades = undefined;
+    R.rec("control: an upgrade after T3 + margin: accepted", "accept", u2 === null, u2); }
+  { const S = await newSwap("r10-r6-cap9"); doSetup(S); zec(["genesis", ...S.d()]); zec(["mine", ...S.d(`n=${ZEC_HISTORY}`)]);
+    const ok = zecGate(S); R.rec("Bob's Zcash gate with the honest feed: allowed (control)", "accept", ok === null, ok);
+    P7feed = { ...FEED(), zecUsd: FEED().zecUsd * 30 }; const g = zecGate(S); P7feed = undefined;
+    R.rec(`Bob's Zcash gate re-runs the value cap with the node's era (${S.nodeEra?.era}): an over-cap swap is refused before he funds ZEC`, "reject /REFUSE: .*(cap|Z=)/", /REFUSE: .*(cap|Z=)/.test(g ?? ""), g); }
+  { const S = await newSwap("r10-r6-minada"); doSetup(S); await lock(S, R); await S.L.awaitBlock(K);
+    R.rec("control: Bob accepts the honest 1000 ADA lock", "accept", bobChecksLock(S) === null, bobChecksLock(S));
+    const small = 1_500_000, pf = path.join(S.dir, "params.json"), P = rd(pf);
+    fs.writeFileSync(pf, JSON.stringify({ ...P, lovelace: small }, null, 1)); S.escrow = { ...S.escrow, assets: { lovelace: BigInt(small) } };
+    const bad = bobChecksLock(S); R.rec("a lock below minADA(Refunding datum) + margin (agreed at 1.5 ADA): Bob refuses to fund (W.1)", "reject /minADA/", /minADA/.test(bad ?? ""), bad); }
+  return { R };
+}
+
+const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: async () => { PIN_NU63 = true; try { return await nu7Cases(); } finally { PIN_NU63 = false; } }, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: async () => { PIN_NU63 = true; try { return await r9Era(); } finally { PIN_NU63 = false; } }, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned, r10_review6: r10Review6 };
 const out = {}; const t0 = Date.now();
 for (const [k, f] of Object.entries(all)) {
   if (which !== "all" && which !== k) continue;
