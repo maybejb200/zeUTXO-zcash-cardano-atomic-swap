@@ -1,0 +1,31 @@
+[pass] W1a shareMatches accepts the real share for its point
+[pass] W1b …and rejects a junk integer, the other party's share, 0, negatives, x ≥ 2^252 and non-integers
+[pass] W1c …and fails closed on a malformed point (wrong length, not hex, not on the curve)
+[pass] W1d an upper-case point encoding is the same point
+[pass] W1e revealedShare ignores a decoy Reveal{12345}: nothing was seen
+[pass] W1f a decoy seen BEFORE the real Reveal cannot hide it (map and legacy encodings)
+[pass] W1g the right integer under the WRONG constructor is not a reveal (Alice does not take b from a RefundReveal-shaped redeemer)
+[pass] W1h Bob's side: a from a RefundReveal{a}; Alice's own share a is never returned as b
+[pass] W1i garbage in the feed (not a tx, a tx without redeemers) is skipped, not fatal
+[pass] W2a body order ≠ sorted order: each input gets its own redeemer — ["01","fe"]
+[pass] W2b same tx hash, different output index: ordered by index (legacy array)
+[pass] W2c an outref the tx does not spend: null
+[pass] W2d an input with NO redeemer (a key-locked fee input) gets null, not the tx's first redeemer
+[pass] P1a an absent state file reads as empty
+[pass] P1b values survive a reload from disk (a new store object, as after a restart)
+[pass] P1c writes are atomic: no temp file is left behind — state.json
+[pass] P1d a corrupt state file is refused loudly, never read as empty
+[pass] P2a Alice's view: only a decoy in her feed → b not seen, nothing saved
+[pass] P2b the real Reveal reaches her feed → she has b, and it is on disk
+[pass] P2c after a restart with an EMPTY feed (tx dropped from her mempool) she still has b from her saved state
+[pass] P2d views are separate: Bob, with his own feed and directory, has seen nothing although Alice has
+[pass] P2e Bob's view takes a from a RefundReveal{a} and ignores the Reveal{b} in the same feed
+[pass] P2f a tampered saved share (does not open B_c) is refused, not handed to the sweep
+[pass] P2g a saved share recorded for ANOTHER swap's point is refused
+[pass] P2h constructor refuses a missing/malformed point, role or feed
+[pass] X1a Alice's process, decoy only: share null — {"code":0,"role":"alice","share":null}
+[pass] X1b Alice's process after the real Reveal reaches HER feed: b — {"code":0,"role":"alice","share":"123456789abcdef0123456789abcdef0123456789abcde
+[pass] X1c Bob's process (own directory, own empty feed) still sees nothing — {"code":0,"role":"bob","share":null}
+[pass] X1d Alice's process killed and restarted with an empty feed: b comes back from her saved state
+[pass] X1e a corrupt state file: the process refuses (exit 2), it does not report 'not seen' — {"code":2,"role":"alice","refused":"party state unreadable (/tmp/zeutxo-party-25pPPE/p-alice/state.json): Expected prope
+30/30 pass
