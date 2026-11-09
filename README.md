@@ -8,7 +8,7 @@ Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They should be able to t
 
 - **Design:** "Path 1", a Farcaster/COMIT-style adaptor-signature swap. Spec **v0.7** (escrow contract v0.7) is in [`spec/spec.md`](spec/spec.md).
 - **Validation:** simulator only. Step 9 passes **683/683** end-to-end checks, 76 Aiken tests (71 + 5 review-5 tests), 13/13 + 58/58 wallet-gate probes and 10/10 PoK checks.
-- **Reviews:** five adversarial reviews. Review 5 gave a CONDITIONAL PASS; its High finding (H1) and Medium findings were fixed in step 9.
+- **Reviews:** five adversarial reviews, plus a **Review 6 project assessment & pre-rehearsal audit** in [`docs/reviews/review6-assessment-and-recommendations.md`](docs/reviews/review6-assessment-and-recommendations.md). Review 5 gave a CONDITIONAL PASS; its High finding (H1) and Medium findings were fixed in step 9. Review 6 assesses the overall viability, audits the step 9 wallet code, and details tiered recommendations.
 - **Next:** a testnet rehearsal (Zcash testnet + Cardano preprod, throwaway keys, faucet coins only) is approved and starts **after Nov 9, 2026**. See [`docs/rehearsal/proposal-v2.md`](docs/rehearsal/proposal-v2.md).
 - **Earlier efforts:** R1 (archived Sept 10, no-go), R2 (paused Sept 27), and an optimistic-relay design v1–v10 (dropped Nov 2). Their history is in [`docs/timeline.md`](docs/timeline.md).
 
