@@ -50,12 +50,13 @@ Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They should be able to t
 | `src/model/` | Python state-model checkers and timing models (steps 1–9) |
 | `tests/feasibility/` | Step 1 crypto feasibility tests: (a) Orchard split-key signing, (b) cross-group DLEQ, (c) first Aiken escrow |
 | `tests/step9/` | Wallet-gate behaviour probes (gates8, gates9) |
+| `tests/step10/`, `tests/step11/` | Regression tests for the Nov 8 audit, review 6 and the Nov 9 assessment (watchers, per-party view and state) |
 | `tests/review1..5/` | The adversarial tests each review wrote (attack scripts, Aiken tests, model checks, the two-phase escrow prototype) |
 | `results/` | Selected small result summaries (test tables, logs, JSON), with no keys |
 | `docs/timeline.md` | Trial-and-failure history: R1 → R2 → relay v1–v10 → Path 1 steps and reviews |
 | `docs/R1-unshielded.md` | R1's unshielded / public-chain successes (Equihash, header proofs, recursive proof) |
 | `docs/path1/stepN/` | Memos, specs and decisions for steps 1–8 (code is summarised; only step 9 code is included) |
-| `docs/reviews/` | The five Path 1 attack reviews |
+| `docs/reviews/` | The Path 1 attack reviews 1–5 and the Nov 9 assessment (review 7) |
 | `docs/relay-design/` | The superseded relay design: research, architecture, dispute design, reviews v6–v10, v10 report, reflection and plan, decisions log, audit |
 | `docs/history/R1`, `docs/history/R2` | Cleaned copies of key R1/R2 summary docs (local paths scrubbed) |
 | `docs/prior-art/` | Prior-art notes (Farcaster/COMIT, Athanor, Logos ...) |
@@ -72,6 +73,10 @@ These files were copied from a working tree. Some scripts still use absolute pat
   - `cd src/ada && node e2e9.mjs all` (step 9 sim profile) and `E2E_PROFILE=rehearsal node e2e9.mjs all` (NU7, K=15, Z=30)
   - Review 6 follow-up (R6-M2, R6-M3): `cd src/ada && node e2e9.mjs r10_review6`; its pre-fix output is `results/step10/before_r10_review6.txt`.
   - Summaries are in `results/step10/`. `aiken check` was not re-run in step 10 (the escrow is unchanged).
+- Step 11 (Nov 9 assessment fixes W-1, W-2; per-party view and state; CI):
+  - `node tests/step11/party_test.mjs` (verified secret watchers, redeemer/input pairing, per-party state, the watcher as a separate process per party)
+  - `cd src/ada && node e2e9.mjs r11_decoy`; its pre-fix output is `results/step11/before_r11_decoy.txt`.
+  - CI (`.github/workflows/ci.yml`) rebuilds the escrow with Aiken v1.1.24, checks it is byte-identical to `plutus.json` with the pinned hash, and runs every suite above. `e2e9.mjs` and the gate probes exit non-zero on failure.
 All keys are generated fresh at runtime. None are stored in the repo.
 
 ## License

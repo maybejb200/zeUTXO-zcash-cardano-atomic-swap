@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "@lucid-evolution/lucid": "^0.4.34"
+    "@lucid-evolution/lucid": "^0.4.34",
+    "@noble/curves": "1.9.7"
   }
 }

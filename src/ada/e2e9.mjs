@@ -13,6 +13,7 @@ import { valueCapCheck, capUsd, VC } from "./valuecap.mjs";
 import { valueCap7, nu7Gate7, nu7BlackoutBlocks, commitGate, revealGate, escapeGate, upgradeBlackoutGate, swapUsd, P7, minZ, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate, NOTICE_RANGE_MAX } from "./policy8.mjs";
 import { revealGate9, revealParamsCheck, refundProvenance9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, minAdaLock9, zebraVersionGate, P9 } from "./policy9.mjs";
 import { slotToMs, noticeWindow, decodeCreating, lowerBoundMs, txRedeemerData } from "./chaintx.mjs";
+import { PartyView } from "./party.mjs";
 import { createRequire } from "module";
 const sodium = createRequire(import.meta.url)("libsodium-wrappers-sumo"); await sodium.ready;
 import { execFileSync } from "child_process";
@@ -495,12 +496,12 @@ async function start(tag, R, { go = true } = {}) {
   return S;
 }
 async function aliceTakesZec(S, R, label = "Sweep (Alice, a+b)") {
-  // step 7: b is in the Reveal that spends the Claimed output (Alice reads mempool or chain). She also accepts a Reveal on
-  // ANY output of a Commit of her escrow, so a rebuilt Commit cannot hide it.
-  const u = S.claimed ?? await ownClaimed(S);
-  const sp = u ? S.L.spendingRedeemer(u.txHash, u.outputIndex) : null;
-  if (!sp || sp.redeemer.index !== 1) return { b: null, bHex: null, sw: { rejected: true, reason: "no Reveal seen" } };
-  const b = sp.redeemer.fields[0]; const bHex = leHex(b);
+  // step 11 (W-1; review 6 R6-L1): Alice takes b from HER OWN view — any Reveal{b} she has seen (mempool or chain) whose b
+  // opens B_c. She needs neither Bob's record of the Claimed outref nor a particular spending tx, so a rebuilt Commit or a
+  // decoy cannot hide it.
+  const b = aliceSeesB(S);
+  if (b === null) return { b: null, bHex: null, sw: { rejected: true, reason: "no Reveal seen" } };
+  const bHex = leHex(b);
   return { b, bHex, sw: sweep(S, R, "alice", [`other_share=${bHex}`], label) };
 }
 
@@ -508,7 +509,14 @@ async function aliceTakesZecPeek(S) { const u = S.claimed; const sp = S.L.spendi
 // step 10 (review 6 R6-M2): the watchers below read legacy-array AND Conway map redeemers (txRedeemerData)
 const secretInMempool = (S, x) => S.L.seen.some(t => txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex)).some(d => d.fields?.some(f => typeof f === "bigint" && f === x)));
 // step 8: any broadcast RefundReveal{a} (redeemer 3), whatever its label
-function refundA(S) { for (const t of S.L.seen) for (const d of txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex))) if (d.index === 3) return d.fields[0]; return null; }
+// step 11 (assessment W-1 + item 4): each party has its OWN view (party.mjs): its own feed of seen txs (S.feeds?.<party>, default
+// = everything the simulated network has seen), its own state file in its own directory, and a watcher that accepts a share
+// only if it opens the counterparty's datum point. A decoy redeemer is not "seen"; a real share is saved before it is used.
+function viewOf(S, role) {
+  S.views ??= {};
+  return S.views[role] ??= new PartyView({ role, dir: path.join(S.dir, role), otherPoint: rd(path.join(S.dir, `${role === "alice" ? "bob" : "alice"}/pub.json`)).Q, feed: () => (S.feeds?.[role] ?? (() => S.L.seen))() });
+}
+function refundA(S) { return viewOf(S, "bob").otherShare(); }   // Bob's view: a from any RefundReveal{a} with a·G1 = A_c
 // A bribed producer can include ANY valid tx regardless of what other mempools hold, so script-level rejections are
 // tested by submitting with the conflicting censored tx set aside (restored afterwards). (review4 helper)
 async function asideFrom(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
@@ -1253,7 +1261,7 @@ async function zecNodeCases() {
 
 
 // ======================= step 8: griefing, refund-trap fork, censorship of both refund steps, races =======================
-const aliceSeesB = (S) => { for (const t of S.L.seen) for (const d of txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex))) if (d.index === 1 && typeof d.fields[0] === "bigint") return d.fields[0]; return null; };   // step 10 (R6-M2): either encoding
+const aliceSeesB = (S) => viewOf(S, "alice").otherShare();   // step 11 (W-1): Alice's own view; b only if b·G1 = B_c (either redeemer encoding)
 // A bribed producer can include ANY valid tx regardless of what other mempools hold (conflicting censored txs set aside).
 async function asideFrom8(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
   try { return await fn(); } finally { const now = new Set(S.L.pending.map(p => p.hash)); S.L.pending = S.L.pending.filter(p => !keep.some(k => [...k.inputs].some(i => p.inputs.has(i)))).concat(keep.filter(k => !now.has(k.hash))); } }
@@ -1696,9 +1704,9 @@ function mapRedeemerTx(outref, constr, fields) {
 const SCRIPT_ADDR_ANY = () => validatorToAddress("Custom", SCRIPT);
 async function r10Review6() {
   const R = new Results("r10_review6"); console.log("== step 10 (review 6): map-encoded redeemers in the secret watchers (R6-M2); policy9 gates wired in (R6-M3)");
-  { const S = await newSwap("r10-r6-map");
+  { const S = await newSwap("r10-r6-map"); doSetup(S);   // step 11 (W-1): the watchers accept only the swap's REAL shares, so the test now reveals those
     const claimed = { txHash: "c1".repeat(32), outputIndex: 0 }, refunding = { txHash: "c2".repeat(32), outputIndex: 0 };
-    const b = 0x0123456789abcdefn * 1000003n, a = 0x0fedcba987654321n * 999983n;
+    const b = secret(S, "bob"), a = secret(S, "alice");
     const extra = [{ txHex: mapRedeemerTx(claimed, 1, [b]), label: "reveal_map", hash: "r6m2-reveal" }, { txHex: mapRedeemerTx(refunding, 3, [a]), label: "refund_reveal_map", hash: "r6m2-refund" }];
     S.L.seen.push(...extra);
     try {
@@ -1728,7 +1736,54 @@ async function r10Review6() {
   return { R };
 }
 
-const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: async () => { PIN_NU63 = true; try { return await nu7Cases(); } finally { PIN_NU63 = false; } }, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: async () => { PIN_NU63 = true; try { return await r9Era(); } finally { PIN_NU63 = false; } }, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned, r10_review6: r10Review6 };
+// step 11 (Nov 9 assessment W-1, W-2): the secret watchers must ignore Reveal-/RefundReveal-shaped redeemers whose integer is
+// not the counterparty's share (x·G1 ≠ the datum point), and the ledger watcher must pair redeemers with inputs in SORTED order.
+function twoSpendTx(first, second, r1, r2) {   // body lists `first` before `second`; redeemer indexes follow the ledger's sorted order
+  const ins = CML.TransactionInputList.new(); for (const o of [first, second]) ins.add(CML.TransactionInput.new(CML.TransactionHash.from_hex(o.txHash), BigInt(o.outputIndex)));
+  const outs = CML.TransactionOutputList.new(); outs.add(CML.TransactionOutput.new(CML.Address.from_bech32(SCRIPT_ADDR_ANY()), CML.Value.from_coin(2_000_000n)));
+  const sorted = [first, second].slice().sort((p, q) => p.txHash < q.txHash ? -1 : p.txHash > q.txHash ? 1 : p.outputIndex - q.outputIndex);
+  const m = CML.MapRedeemerKeyToRedeemerVal.new();
+  for (const [o, r] of [[first, r1], [second, r2]]) m.insert(CML.RedeemerKey.new(CML.RedeemerTag.Spend, BigInt(sorted.indexOf(o))), CML.RedeemerVal.new(CML.PlutusData.from_cbor_hex(Data.to(r)), CML.ExUnits.new(1_000_000n, 500_000_000n)));
+  const ws = CML.TransactionWitnessSet.new(); ws.set_redeemers(CML.Redeemers.new_map_redeemer_key_to_redeemer_val(m));
+  return CML.Transaction.new(CML.TransactionBody.new(ins, outs, 300_000n), ws, true, undefined).to_cbor_hex();
+}
+async function r11Decoy() {
+  const R = new Results("r11_decoy"); console.log("== step 11 (assessment W-1/W-2): decoy secrets cannot block Escape/Forfeit or hide the real secret; redeemers pair with sorted inputs");
+  const other = (h) => ({ txHash: h.repeat(32), outputIndex: 0 });
+  { const S = await start("r11-escape", R);
+    const c = await bobCommit(S, R); R.rec("Bob's Commit settles, then Bob stalls (no Reveal)", "accept", c.settled, c.why);
+    await S.L.untilMs(S.T3 - 60_000);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d0"), 1, [12345n]), label: "decoy_reveal", hash: "r11-decoy-b" });   // Reveal-shaped, any script, junk integer
+    R.rec("W-1: a Reveal-shaped redeemer with a junk integer (12345·G1 ≠ B_c) is NOT taken as b", "accept", aliceSeesB(S) === null, String(aliceSeesB(S)));
+    await S.L.untilMs(S.T3);
+    const eg = escapeGate({ now: S.L.now(), T3: S.T3, claimed: !!S.L.entry(S.claimed.txHash + S.claimed.outputIndex), sawB: aliceSeesB(S) !== null });
+    R.rec("W-1: at T3 Alice's Escape gate still passes despite the decoy", "accept", eg === null, eg);
+    await refreshParams(S); const e = await signSubmit(S, await build(S, S.A, escapeTx(S, S.T3)), S.A, "escape"); await S.L.awaitBlock(K);
+    R.rec("…and her Escape settles: ADA back to Alice", "accept", S.L.confirmations(e.txHash) >= K); }
+  { const S = await start("r11-reveal", R); const bobX = secret(S, "bob");
+    const c = await bobCommit(S, R); R.rec("Bob's Commit settles", "accept", c.settled, c.why);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d2"), 1, [777n]), label: "decoy_reveal", hash: "r11-decoy-b2" });   // decoy is seen BEFORE the real Reveal
+    const r = await bobReveal(S, R, bobX); R.rec("Bob's real Reveal{b} settles after the decoy was broadcast", "accept", r.settled, r.refused ?? r.why);
+    R.rec("W-1: Alice's watcher skips the decoy and returns the real b", "accept", aliceSeesB(S) === bobX, String(aliceSeesB(S)));
+    const sw = sweep(S, R, "alice", [`other_share=${leHex(aliceSeesB(S) ?? 0n)}`], "Sweep (Alice, a+b, decoy present)"); R.rec("…and she sweeps the ZEC with it", "accept", sw.accepted === true, sw.reason); }
+  { const S = await start("r11-forfeit", R, { go: false });
+    const n = await aliceNotice(S, R); R.rec("Alice's Notice settles; she then stalls", "accept", n.settled, n.why);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d1"), 3, [777n]), label: "decoy_refund_reveal", hash: "r11-decoy-a" });
+    R.rec("W-1: a RefundReveal-shaped redeemer with a junk integer (777·G1 ≠ A_c) is NOT taken as a", "accept", refundA(S) === null, String(refundA(S)));
+    await S.L.untilMs(S.t4);
+    const f = await bobForfeit(S, R); R.rec("W-1: at t4 Bob's Forfeit still goes through despite the decoy", "accept", f.settled, f.refused); }
+  { const S = await newSwap("r11-w2");
+    const lo = other("01"), hi = other("fe");   // body order: hi first, lo second; sorted order: lo (index 0), hi (index 1)
+    S.L.seen.push({ txHex: twoSpendTx(hi, lo, new Constr(1, [1111n]), new Constr(5, [])), label: "two_spends", hash: "r11-w2" });
+    const a = S.L.spendingRedeemer(hi.txHash, 0), b = S.L.spendingRedeemer(lo.txHash, 0);
+    R.rec("W-2: spendingRedeemer returns each input's OWN redeemer when the body order differs from the sorted order", "accept", a?.redeemer?.index === 1 && a.redeemer.fields[0] === 1111n && b?.redeemer?.index === 5, `${a && Data.to(a.redeemer)} / ${b && Data.to(b.redeemer)}`);
+    const stray = { txHex: mapRedeemerTx(other("aa"), 1, [5n]).replace("aa".repeat(32), "ab".repeat(32)), label: "x", hash: "r11-w2b" };   // control: single input, single redeemer still found
+    S.L.seen.push(stray); const c2 = S.L.spendingRedeemer("ab".repeat(32), 0);
+    R.rec("control: a single-input spend still decodes", "accept", c2?.redeemer?.index === 1 && c2.redeemer.fields[0] === 5n, c2 && Data.to(c2.redeemer)); }
+  return { R };
+}
+
+const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: async () => { PIN_NU63 = true; try { return await nu7Cases(); } finally { PIN_NU63 = false; } }, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: async () => { PIN_NU63 = true; try { return await r9Era(); } finally { PIN_NU63 = false; } }, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned, r10_review6: r10Review6, r11_decoy: r11Decoy };
 const out = {}; const t0 = Date.now();
 for (const [k, f] of Object.entries(all)) {
   if (which !== "all" && which !== k) continue;
@@ -1743,3 +1798,5 @@ fs.mkdirSync(path.join(ROOT, "results"), { recursive: true });
 const f = path.join(ROOT, "results", `e2e9-${which}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 fs.writeFileSync(f, JSON.stringify(out, (k, v) => typeof v === "bigint" ? Number(v) : v, 2));
 console.log("results:", f, "elapsed", out.elapsed_s, "s");
+// step 11 (CI): a failed or crashed group fails the process, so a workflow cannot report green on a red run.
+if (Object.keys(all).some(k => out[k] && out[k].pass !== true)) process.exit(1);

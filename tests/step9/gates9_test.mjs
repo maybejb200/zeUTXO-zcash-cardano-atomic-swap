@@ -31,3 +31,4 @@ const rg = (o) => revealGate9({ commitConfs: 15, K: 15, commitSettledAt: 30 * MI
 const bad = out.filter(o => !o.safe);
 console.log(`\n${out.length} probes, ${out.length - bad.length} safe, ${bad.length} findings: ${bad.map(o => o.id).join(", ")}`);
 fs.writeFileSync(new URL("../../results/step9/gates9_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
+process.exit(bad.length ? 1 : 0);   // step 11 (CI): a fail-open probe fails the run

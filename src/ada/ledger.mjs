@@ -5,7 +5,7 @@
 import { Emulator, CML, createCostModels, getAddressDetails, PROTOCOL_PARAMETERS_DEFAULT, Data } from "@lucid-evolution/lucid";
 import * as UPLC from "@lucid-evolution/uplc";
 import fs from "fs";
-import { txRedeemers } from "./chaintx.mjs";
+import { spendRedeemer } from "./watch.mjs";
 
 export function mainnetParams(path = new URL("./mainnet_params_koios.json", import.meta.url)) {
   const kp = JSON.parse(fs.readFileSync(path));
@@ -223,17 +223,13 @@ export class StrictLedger {
     return { bytes: bytes.length, fee: Number(fee), declared: declared.map(d => ({ mem: Number(d.mem), steps: Number(d.steps) })),
       actual: actual.map(a => ({ mem: Number(a.mem), steps: Number(a.steps), memPct: +(100 * Number(a.mem) / Number(this.pp.maxTxExMem)).toFixed(3), stepsPct: +(100 * Number(a.steps) / Number(this.pp.maxTxExSteps)).toFixed(3) })) };
   }
-  /** Watcher: redeemer of the first SEEN tx (mempool or chain) spending outRef — the adversary reads the mempool. */
+  /** Watcher: redeemer of the first SEEN tx (mempool or chain) spending outRef — the adversary reads the mempool.
+   *  Step 11 (assessment W-2): the redeemer is paired with the input by SORTED input order (watch.spendRedeemer); a tx that
+   *  spends outRef without a redeemer for it is skipped, never answered with some other redeemer of that tx. */
   spendingRedeemer(txHash, outputIndex, { confirmedOnly = false } = {}) {
     for (const t of (confirmedOnly ? this.log : this.seen)) {
-      const tx = CML.Transaction.from_cbor_hex(t.txHex); const ins = tx.body().inputs();
-      for (let i = 0; i < ins.len(); i++) {
-        if (ins.get(i).transaction_id().to_hex() === txHash && Number(ins.get(i).index()) === outputIndex) {
-          const all = txRedeemers(tx);   // step 10 (review 6 R6-M2): legacy array or Conway map
-          const r = all.find(r => r.index === i && r.tag === 0) ?? all[0];
-          return { tx: t, redeemer: Data.from(r.cborHex) };
-        }
-      }
+      const redeemer = spendRedeemer(t.txHex, { txHash, outputIndex });
+      if (redeemer) return { tx: t, redeemer };
     }
     return null;
   }

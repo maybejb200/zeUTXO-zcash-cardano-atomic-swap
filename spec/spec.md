@@ -103,3 +103,10 @@ burn/deposit counter-measure (decided not worth the complexity, D31).
 - **W.8 blackout:** refuse if NU7 (or any upgrade) or Zebra end-of-support falls between setup and T3 + 24 h (D42).
 - **D. Open items:** L3 free stalls (accepted), L6 timing correlation (known), R-2 a fork deeper than K on Cardano after
   Commit still loses (by design of K), the ZEC-leg race at T3 if every earlier broadcast is censored (L1).
+
+## Step 11 deltas (Nov 9 2026 assessment; decisions D47–D50; escrow unchanged)
+- **W.5 / W.8 / W.9 "seen":** a share counts as seen only if 0 < x < 2^252 and x·G1 equals the counterparty's datum point
+  (B_c for b, A_c for a). Any other Reveal-/RefundReveal-shaped redeemer is ignored: it neither triggers a sweep nor blocks
+  Escape or Forfeit (D47). A seen share is saved to the party's own state file before it is used (D49).
+- **Watchers:** Spend redeemers are matched to inputs by the ledger's sorted input order; no match = no redeemer (D48).
+

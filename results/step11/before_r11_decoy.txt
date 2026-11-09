@@ -1,0 +1,28 @@
+== step 11 (assessment W-1/W-2): decoy secrets cannot block Escape/Forfeit or hide the real secret; redeemers pair with sorted inputs
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=-1 swap_id=f05ffb3a3d8d69c3f86e87da609a6dbbd4223753305d6f9658c1440bff40beb4
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit settles, then Bob stalls (no Reveal) (accept) 
+  [FAIL] W-1: a Reveal-shaped redeemer with a junk integer (12345·G1 ≠ B_c) is NOT taken as b (accept) — 12345
+  [FAIL] W-1: at T3 Alice's Escape gate still passes despite the decoy (accept) — REFUSE: b was seen (or unknown) — honest Alice already swept the ZEC and does not escape
+  [ok] …and her Escape settles: ADA back to Alice (accept) 
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=aad6ced21fea0d3941720cd697c3d1906a71b50ea58fcd67c985fd498485a16e
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [ok] Bob's Commit settles (accept) 
+  [ok] Bob's real Reveal{b} settles after the decoy was broadcast (accept) 
+  [FAIL] W-1: Alice's watcher skips the decoy and returns the real b (accept) — 777
+  [FAIL] …and she sweeps the ZEC with it (accept) — sweeper refused: REFUSE: revealed share does not match counterparty's public share
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=77ed0bb7ef3bf58fc86400584a0004b68062995983583003c4e4b0c75ec2aac5
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice's Notice settles; she then stalls (accept) 
+  [FAIL] W-1: a RefundReveal-shaped redeemer with a junk integer (777·G1 ≠ A_c) is NOT taken as a (accept) — 777
+  [FAIL] W-1: at t4 Bob's Forfeit still goes through despite the decoy (accept) — REFUSE: a was seen (or unknown) — honest Bob sweeps his ZEC back and does not Forfeit
+  [FAIL] W-2: spendingRedeemer returns each input's OWN redeemer when the body order differs from the sorted order (accept) — d87e80 / d87a9f190457ff
+  [ok] control: a single-input spend still decodes (accept) — d87a9f05ff
+== r11_decoy: FAIL (19/26 checks)

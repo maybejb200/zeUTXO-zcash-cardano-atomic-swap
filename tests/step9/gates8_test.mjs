@@ -84,3 +84,4 @@ const bad = out.filter(o => !o.safe).map(o => o.id);
 const ported = out.filter(o => /^(V|N|P|G)/.test(o.id));
 console.log(`\n${out.length} probes (${ported.length} ported from review4), ${out.length - bad.length} safe, ${bad.length} fail open: ${bad.join(", ")}`);
 fs.writeFileSync(new URL("../../results/step9/gates8_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
+process.exit(bad.length ? 1 : 0);   // step 11 (CI): a fail-open probe fails the run

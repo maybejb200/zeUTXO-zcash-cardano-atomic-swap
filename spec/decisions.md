@@ -213,3 +213,26 @@ A counterparty can still lock the other's funds for up to ~7.2 d at only fee cos
 ## D46 L6 known: timing correlation
 Commit/Reveal/sweep timing can link the Cardano and Zcash legs for a chain observer. Known, not fixed; the hold cap (D35)
 slightly worsens it in busy periods. Documented in spec D.
+
+# STEP 11 decisions (Nov 9 2026 assessment, findings W-1 and W-2; wallet only, escrow unchanged)
+## D47 A share is "seen" only if it opens the counterparty's datum point (W-1)
+The watchers used to return the first Reveal-/RefundReveal-shaped redeemer in any transaction. A counterparty could
+broadcast a junk one on any script, so the other side's Escape (or Forfeit) gate refused ("b was seen") while the real
+secret stayed hidden: a bounded stall became an open-ended option. Now x is accepted only if 0 < x < 2^252 and
+x·G1 = B_c (for b) or A_c (for a), the escrow's own test (`ada/watch.mjs`). A value that passes IS the share, wherever it
+was seen, so no outref rule is needed; a value that fails is ignored and does not count as seen. Tests: e2e9 r11_decoy,
+tests/step11 W1a–W1i.
+## D48 Spend redeemers are paired with inputs in sorted order; no fallback (W-2)
+`StrictLedger.spendingRedeemer` compared a redeemer's index with the input's position as listed in the body and fell
+back to the tx's first redeemer. It now uses the ledger's sorted input order (`watch.spendRedeemer`) and returns nothing
+when the input has no redeemer. Tests: r11_decoy, W2a–W2d.
+## D49 Each party has its own view and durable state
+`ada/party.mjs`: a PartyView holds one party's own feed of seen transactions and its own state file in its own
+directory; a counterparty share is written to disk (atomic, fsynced) BEFORE it is returned, and re-verified against the
+point on every load. Alice's sweep takes b from her own view, not from Bob's record of the Claimed outref (review 6
+R6-L1 for the secret path). `ada/party_watch_cli.mjs` runs the watcher as a separate process per party. NOT done yet:
+the Commit/Notice/Reveal builders and the lock/Claimed/Refunding discovery still run in one simulator process (e2e9).
+## D50 CI
+`.github/workflows/ci.yml` rebuilds the escrow with Aiken v1.1.24 and requires the result to be byte-identical to the
+committed plutus.json with the pinned hash, runs the Aiken tests, the unit tests, the gate probes and the full e2e suite
+in both profiles. e2e9 and the gate probes now exit non-zero on any failure.
