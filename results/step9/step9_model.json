@@ -160,7 +160,7 @@
   "t4_alice_notice": 10246.9,
   "t4_bob_notice": 10271.9
  },
- "rehearsal_nu7_K15_Z30_tail2h_min": {
+ "rehearsal_nu7_K15_Z30_tail3h_min": {
   "D": 15.0,
   "S": 12.5,
   "M": 54.9,
@@ -171,19 +171,19 @@
   "LAST_COMMIT": 88.7,
   "T1": 118.7,
   "T2": 166.1,
-  "T3": 238.7,
+  "T3": 298.7,
   "refund_notice_settled": 161.1,
   "refund_done_honest": 188.6,
-  "reveal_deadline_after_alice_notice": 243.7,
-  "t4_alice_notice": 298.7,
-  "t4_bob_notice": 346.1
+  "reveal_deadline_after_alice_notice": 303.7,
+  "t4_alice_notice": 358.7,
+  "t4_bob_notice": 406.1
  },
  "bob_reveal": {
   "hold_cap_min_real": 90,
   "late_cutoff": "T3 - 2 d",
   "hold_cap_frac_of_tail": 0.0089,
-  "rehearsal_hold_cap_min": 12,
-  "rehearsal_late_cutoff_min_before_T3": 34
+  "rehearsal_hold_cap_min": 18,
+  "rehearsal_late_cutoff_min_before_T3": 60
  },
  "lockups_v1_days": {
   "bob_commits_then_stalls_alice": 7.12,
@@ -192,8 +192,8 @@
  },
  "rehearsal_wall_clock_min": {
   "happy_path_to_T1": 118.7,
-  "T3": 238.7,
-  "t4_bob_notice": 346.1
+  "T3": 298.7,
+  "t4_bob_notice": 406.1
  },
  "nu7_blackout_v1_s": 704826
 }

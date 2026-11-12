@@ -1,0 +1,9 @@
+== step 10 (audit A2): Notice built from a clock that is not on a slot boundary
+  [ok] setup: both verify the other's transcript-bound DLEQ + key reveal; same joint address and same swap id (accept) — σ=1 swap_id=81197fd055e0e0293066380d8bf5cceac8ee5fdb2e1ac9a12c5573b508b83e03
+  [ok] Bob refuses to fund while the lock is not yet settled (H-1) (reject) — lock not settled (1 < 3 confirmations)
+  [ok] Bob checks the SETTLED lock (outref, script credential, no stake credential, exact value, inline datum byte-equal to his own canonical rebuild, timing rule) (accept) 
+  [ok] Alice gives "go" (note depth ≥ 3 on the live chain, escrow settled, now ≤ T0) (accept) — status funded_ok, 160 s before T0
+  [ok] Bob verifies the go signature off-chain against this escrow before revealing b (accept) 
+  [FAIL] Notice built from an unaligned clock is admitted (datum t4 = the on-chain upper bound + tail) (accept) — { Complete: "failed script execution Spend[0] the validator crashed / exited prematurely" }
+  [FAIL] Alice's provenance check recognises it as her own Refunding UTxO, K deep (accept) — no upper bound
+== r10_unaligned: FAIL (5/7 checks)

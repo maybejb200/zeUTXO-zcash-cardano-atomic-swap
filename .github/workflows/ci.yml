@@ -1,0 +1,103 @@
+# zeUTXO CI (step 11). Three jobs:
+#   escrow  rebuilds the Aiken escrow from source with the pinned compiler and checks that the result is byte-identical to
+#           the committed plutus.json and has the script hash the spec pins. Also runs the Aiken tests.
+#   unit    wallet unit tests and gate probes (seconds).
+#   e2e     the full end-to-end simulator suite in both profiles (step 9 sim; rehearsal = NU7, K=15, Z=30).
+# Simulator only: nothing here talks to a real chain, and no keys or secrets are used.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # The escrow hash pinned in spec/spec.md §B. Changing the escrow means changing this line in the same PR, on purpose.
+  ESCROW_HASH: 0ed9e0540ff4f40ccf3ccad91efaf9663d0feb4a6b5cad63700087e0
+
+jobs:
+  escrow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/ada/onchain
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aiken-lang/setup-aiken@v1
+        with:
+          version: v1.1.24
+      - name: Committed blueprint has the pinned hash
+        run: |
+          jq -e --arg h "$ESCROW_HASH" '[.validators[].hash] | length > 0 and all(. == $h)' plutus.json
+          cp plutus.json "$RUNNER_TEMP/plutus.committed.json"
+      - name: Aiken tests
+        run: aiken check
+      - name: Rebuild from source
+        run: aiken build
+      - name: Rebuilt script is byte-identical to the committed one
+        run: |
+          sel='[.validators[] | {title, hash, compiledCode}]'
+          diff <(jq -S "$sel" "$RUNNER_TEMP/plutus.committed.json") <(jq -S "$sel" plutus.json)
+          jq -e --arg h "$ESCROW_HASH" '[.validators[].hash] | all(. == $h)' plutus.json
+          echo "escrow rebuilt from source: hash $ESCROW_HASH, $(jq -r '.validators[0].compiledCode | length / 2' plutus.json) bytes" >> "$GITHUB_STEP_SUMMARY"
+
+  unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/ada/package-lock.json
+      - run: npm ci
+        working-directory: src/ada
+      - name: Audit and review regression tests (step 10)
+        run: node tests/step10/fixes_test.mjs
+      - name: Watcher, per-party view and state tests (step 11)
+        run: node tests/step11/party_test.mjs
+      - name: Wallet gate probes
+        run: |
+          node tests/step9/gates8_test.mjs
+          node tests/step9/gates9_test.mjs
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [sim, rehearsal]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/ada/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src/zec
+      - run: npm ci
+        working-directory: src/ada
+      - name: Build the Zcash tool
+        run: cargo build --release --locked
+        working-directory: src/zec
+      - name: End-to-end suite (${{ matrix.profile }})
+        working-directory: src/ada
+        env:
+          E2E_PROFILE: ${{ matrix.profile == 'rehearsal' && 'rehearsal' || '' }}
+        run: |
+          set -o pipefail
+          node e2e9.mjs all | tee "$RUNNER_TEMP/e2e.txt" | grep -E '^== |\[FAIL\]|CRASH'
+      - name: Summary
+        if: always()
+        run: |
+          { echo '```'; grep -E '^== [a-z0-9_]+: ' "$RUNNER_TEMP/e2e.txt" || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

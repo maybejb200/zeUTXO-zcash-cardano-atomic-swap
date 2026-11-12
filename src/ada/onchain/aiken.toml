@@ -3,7 +3,7 @@ version = "0.0.0"
 compiler = "v1.1.24"
 plutus = "v3"
 license = "Apache-2.0"
-description = "zeUTXO path 1 escrow v0.6: two-step Commit/Reveal (Open: Commit|Refund|Punish; Claimed: Reveal|Escape)"
+description = "zeUTXO path 1 escrow v0.7: two-step claim (Commit -> Reveal) and two-step refund (Notice -> RefundReveal); Escape and Forfeit carry no secret"
 
 [repository]
 user = "local"

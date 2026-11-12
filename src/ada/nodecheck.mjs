@@ -5,6 +5,7 @@
 // goVerifyBob): its own libsodium instance, its own message rebuild from the tx + datum.
 import { createRequire } from "module";
 import { CML, Data } from "@lucid-evolution/lucid";
+import { txRedeemers } from "./chaintx.mjs";
 const require_ = createRequire(import.meta.url);
 const sodium = require_("libsodium-wrappers-sumo"); await sodium.ready;
 const DOMAIN = Buffer.from("zeUTXO/path1/go/v1");
@@ -12,15 +13,15 @@ const be = (n, len) => Buffer.from(BigInt(n).toString(16).padStart(len * 2, "0")
 export function ledgerEd25519(scriptHash) {
   return (tx, resolve) => {
     const body = tx.body(), ins = body.inputs();
-    const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(); if (!reds) return;
+    const reds = txRedeemers(tx); if (!reds.length) return;   // step 10 (review 6 R6-M2): legacy array or Conway map
     // ledger sorts inputs; redeemer index refers to sorted order
     const sorted = []; for (let i = 0; i < ins.len(); i++) sorted.push(ins.get(i));
     sorted.sort((a, b) => a.transaction_id().to_hex() === b.transaction_id().to_hex() ? Number(a.index()) - Number(b.index()) : (a.transaction_id().to_hex() < b.transaction_id().to_hex() ? -1 : 1));
-    for (let k = 0; k < reds.len(); k++) {
-      const r = reds.get(k); if (r.tag() !== 0) continue;
-      const inp = sorted[Number(r.index())]; const u = resolve(inp); if (!u) continue;   // u = confirmed UTxO
+    for (const r of reds) {
+      if (r.tag !== 0) continue;
+      const inp = sorted[r.index]; const u = resolve(inp); if (!u) continue;   // u = confirmed UTxO
       const pc = CML.Address.from_bech32(u.address).payment_cred(); if (!pc || pc.kind() !== 1 || pc.as_script().to_hex() !== scriptHash) continue;
-      const red = Data.from(r.data().to_cbor_hex()); if (!(red && red.index === 0)) continue;   // Commit only (step 7)
+      const red = Data.from(r.cborHex); if (!(red && red.index === 0)) continue;   // Commit only (step 7)
       if (!u.datum) continue;
       const d = Data.from(u.datum); const f = d.fields;
       if (typeof f?.[2] !== "string" || typeof f?.[3] !== "bigint" || typeof f?.[4] !== "string" || typeof f?.[7] !== "bigint") continue; // script itself fails such datums

@@ -12,6 +12,8 @@ import { ledgerEd25519 } from "./nodecheck.mjs";
 import { valueCapCheck, capUsd, VC } from "./valuecap.mjs";
 import { valueCap7, nu7Gate7, nu7BlackoutBlocks, commitGate, revealGate, escapeGate, upgradeBlackoutGate, swapUsd, P7, minZ, noticeGate, bobNoticeGate, refundRevealGate, forfeitGate, NOTICE_RANGE_MAX } from "./policy8.mjs";
 import { revealGate9, revealParamsCheck, refundProvenance9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, minAdaLock9, zebraVersionGate, P9 } from "./policy9.mjs";
+import { slotToMs, noticeWindow, decodeCreating, lowerBoundMs, txRedeemerData } from "./chaintx.mjs";
+import { PartyView } from "./party.mjs";
 import { createRequire } from "module";
 const sodium = createRequire(import.meta.url)("libsodium-wrappers-sumo"); await sodium.ready;
 import { execFileSync } from "child_process";
@@ -24,13 +26,15 @@ const bp = JSON.parse(fs.readFileSync(path.join(ROOT, "ada/onchain/plutus.json")
 const V = bp.validators.find(v => v.title === "escrow.escrow.spend");
 const SCRIPT = { type: "PlutusV3", script: V.compiledCode }, SCRIPT_HASH = V.hash;
 const PP0 = mainnetParams();
-const ADA_LOCK = 1_000_000_000n, ZEC_AMT = 50_000_000, NETWORK_ID = 0;
+// step 10 (audit A5): E2E_PROFILE=rehearsal runs the suite at the rehearsal's NU7 / K=15 / Z=30 settings (default: the step 9 sim).
+const REH = process.env.E2E_PROFILE === "rehearsal";
+const ADA_LOCK = 1_000_000_000n, ZEC_AMT = REH ? 30_000_000 : 50_000_000, NETWORK_ID = 0;   // rehearsal: 0.3 ZEC keeps the swap under the $500 cap
 // ---- timing rule (spec v0.2 §T; derived in model/foc_model3.py) ----
 // blocks every 20 s. D = inclusion bound (adversary may delay a valid tx up to D), S = settlement (rollbacks
 // shallower than K blocks are possible), DA = D + S, E = 1 (a fee/cost-model change may land in any window).
-const BLOCK = 20_000, D = 60_000, K = 3, S_SET = K * BLOCK, DA = D + S_SET, E = 1, M = (1 + E) * DA;   // M = 240 s
-const ZDEPTH = 3;                                        // Z: Zcash funding depth Alice requires before "go"
-const T0_OFF = 240_000;                                  // ≥ DA (lock settles) + Zcash funding + Z
+const BLOCK = 20_000, D = 60_000, K = REH ? 15 : 3, S_SET = K * BLOCK, DA = D + S_SET, E = 1, M = (1 + E) * DA;   // M = 240 s
+const ZDEPTH = REH ? 30 : 3;                                      // Z: Zcash funding depth Alice requires before "go"
+const T0_OFF = 2 * DA;                                     // ≥ DA (lock settles) + Zcash funding + Z
 const R_SLACK = 60_000;                                   // step 5 (F3): minimum slack R after a go given exactly at T0
 const DRIFT = 30_000;                                    // step 5 (F4): Bob's clock-error margin; Bob's "now" = max(own clock, chain tip time) + DRIFT
 // step 7 (two-step escrow; derivation in model/step7_model.py and decisions D16): the Commit carries NO secret, so it only
@@ -41,22 +45,27 @@ const LAST_OFF = T1_OFF - 1_000 - MC;                    // = 319 s  LAST_COMMIT
 // step 8 (D25/D26): Alice may send her (secret-free) Notice from T1; Bob may send the same Notice from T2 (liveness only).
 const T2_OFF = T1_OFF + S_SET + 1_000 + R_SLACK + MC + 19_000;   // = 700 s  (rule v0.7: T2 ≥ T1 + S + 1 + R + Mc)
 const NOTICE_TTL = 120_000;                               // sim: a Notice is valid for 120 s (real wallet: 1 h; script cap 6 h)
-const T3_OFF = T1_OFF + 1_200_000;                       // = 1640 s Escape (sim: T1 + 20 min; real profile: T1 + 7 days)
-const T3_MIN = 1_200_000;                                // wallets refuse T3 < T1 + T3_MIN (real: 7 days)
+const T3_OFF = T1_OFF + (REH ? 3_000_000 : 1_200_000);                     // = 1640 s Escape (sim: T1 + 20 min; real profile: T1 + 7 days)
+const T3_MIN = T3_OFF - T1_OFF;                              // wallets refuse T3 < T1 + T3_MIN (real: 7 days)
 const TAIL = T3_OFF - T1_OFF;
-const HOLD_CAP = 120_000, LATE_CUTOFF = 343_000;          // step 9 (R5-H1): sim hold cap (10 % of tail) and late-reveal cutoff (2/7 of tail); real 90 min and 2 d
+const HOLD_CAP = REH ? 300_000 : 120_000, LATE_CUTOFF = REH ? 860_000 : 343_000;   // rehearsal: 10 % of the 3000 s tail; cutoff ≥ M = 720 s          // step 9 (R5-H1): sim hold cap (10 % of tail) and late-reveal cutoff (2/7 of tail); real 90 min and 2 d
 { const bad = revealParamsCheck({ tailMs: TAIL, holdCapMs: HOLD_CAP, lateCutoffMs: LATE_CUTOFF, M }); if (bad) throw new Error(bad); }                            // = 1200 s refund-reveal tail: t4 = Notice upper + TAIL (real: 7 days), D24
 // Real-world depth profile the swap is agreed under (spec v0.4 §V): drives the value cap. The simulator's own K/ZDEPTH
 // above are scaled-down logic-test depths; the cap check uses the agreed real depths in params (k_depth, z_depth).
-const PROFILE = { kDepth: 15, zDepth: 69, era: "nu7", tier: "v1" };   // step 6 (R3-H3): Z = 69 for ε = 1e-3 at q = 0.35 with 5% stales
-const ZEC_BRANCH = 0x37a5165b;                                          // NU6.3 (the sim chain runs NU6.3 unless a test activates NU7)
+const PROFILE = REH ? { kDepth: 15, zDepth: 30, era: "nu7", tier: "rehearsal" } : { kDepth: 15, zDepth: 69, era: "nu7", tier: "v1" };   // step 6 (R3-H3): Z = 69 for ε = 1e-3 at q = 0.35 with 5% stales
+const ZEC_BRANCH = REH ? 0x77190ad9 : 0x37a5165b;                                        // NU6.3 (the sim chain runs NU6.3 unless a test activates NU7)
 // dated feed the wallet observed (sim: fixed, refreshed "1 h ago"); a real wallet fetches it and fails closed if > 24 h old
 // step 7 (review4 F3): the cap uses THESE feed prices, never constants; explicit dated values (2026-11-02 observation)
 const FEED = () => ({ asOf: Date.now() - 3600e3, pools: [0.33, 0.145, 0.12, 0.1], zecUsd: 1254.54, adaUsd: 0.188 });
 const UPGRADES = () => [];   // review4 F5: the wallet's scheduled-upgrade list (sim: none scheduled; a missing list refuses)
 
 // ---------- helpers ----------
+// step 10 (A5): under the rehearsal profile every sim Zcash chain starts post-NU7, past the 24 h post-activation blackout
+// (3,456 blocks at 25 s), unless the test sets its own nu7_height.
+let PIN_NU63 = false;   // the nu7 group tests the NU6.3 → NU7 transition itself, so it pins the step 9 NU6.3 chain in both profiles
+const REH_GENESIS = ["nu7_height=100", `start_height=${100 + 3456 + 500}`];
 function zec(args, allowFail = false) {
+  if (REH && !PIN_NU63 && args[0] === "genesis" && !args.some(a => /^nu7_height=/.test(a))) args = [...args, ...REH_GENESIS.filter(g => !(g.startsWith("start_height=") && args.some(a => /^start_height=/.test(a))))];
   const t = Date.now();
   try { const out = execFileSync(ZEC, args, { encoding: "utf8", maxBuffer: 1 << 26 }); return { code: 0, ms: Date.now() - t, ...JSON.parse(out.trim().split("\n").pop()) }; }
   catch (e) { if (!allowFail) throw new Error(`zec ${args[0]} failed: ${e.stdout} ${e.stderr}`);
@@ -91,7 +100,7 @@ const seenDefault = (p) => path.join(RUNS, `seen-${p}-${SUITE_ID}.json`);   // o
 function paramsOf(S) {
   return { ada_network_id: NETWORK_ID, zec_network: ZEC_NET, script_hash: SCRIPT_HASH, lovelace: Number(ADA_LOCK), zats: ZEC_AMT,
     t0: S.T0, t1: S.T1, t2: S.T2, t3: S.T3, alice_pkh: pkhOf(S.A), bob_pkh: pkhOf(S.B), alice_go_vk: S.go.vk,
-    k_depth: S.profile.kDepth, z_depth: S.profile.zDepth, zec_branch: ZEC_BRANCH, ...(S.paramsOver || {}) };
+    k_depth: S.profile.kDepth, z_depth: S.profile.zDepth, zec_branch: PIN_NU63 ? 0x37a5165b : ZEC_BRANCH, ...(S.paramsOver || {}) };
 }
 async function newSwap(tag, opts = {}) {
   const dir = path.join(RUNS, `${tag}-${Date.now()}`); fs.mkdirSync(dir, { recursive: true });
@@ -136,7 +145,9 @@ function paramsCheck(P) {
   if (P.zec_branch !== 0x37a5165b && P.zec_branch !== 0x77190ad9) return "zec_branch must be NU6.3 or NU7";
   const now = Date.now();
   const v = valueCap7({ lovelace: P.lovelace, zats: P.zats, zDepth: P.z_depth, kDepth: P.k_depth, era: PROFILE.era, tier: PROFILE.tier, feed: P7feed === undefined ? FEED() : P7feed, now, exposureSoFar: P7exposure }); if (v) return v;
-  const u = upgradeBlackoutGate({ now, windowEnd: now + (P.t2 - P.t0) + T0_OFF, events: P7upgrades === undefined ? UPGRADES() : P7upgrades }); if (u) return u;
+  // step 10 (review 6 R6-M3): the scheduled-upgrade blackout covers the whole swap to T3 (the refund tail), as the NU7 gate
+  // already does (R5-L2); it used to stop at T2. upgradeBlackoutGate adds its own P7.blackoutH margin on both sides.
+  const u = upgradeBlackoutGate({ now, windowEnd: now + (P.t3 - P.t0) + T0_OFF, events: P7upgrades === undefined ? UPGRADES() : P7upgrades }); if (u) return u;
   return null;
 }
 // step 8 timing rule (spec v0.7 §T): T1 ≥ T0+1+Mc+R, T2 ≥ T1+S+1+R+Mc (liveness only), T3 ≥ T1+T3min (T3−T1 is also the refund tail)
@@ -155,6 +166,8 @@ async function as(S, acct) { S.lucid.selectWallet.fromPrivateKey(acct.privateKey
 function swapIdOf(S, who = "bob") {   // step 4: the swap id each party computed itself in setup (zec setup → view.json)
   return rd(path.join(S.dir, `${who}/view.json`)).swap_id;
 }
+// Size of this swap's Refunding datum with the widest t4 a POSIX-ms value can take (8-byte CBOR int), for the W.1 min-ADA rule.
+const refundingDatumBytes = (S) => datumOf(S, { phase: 2n, t4: BigInt(Number.MAX_SAFE_INTEGER) }).length / 2;
 function datumOf(S, over = {}) {
   const pa = rd(path.join(S.dir, "alice/pub.json")), pb = rd(path.join(S.dir, "bob/pub.json"));
   const f = { alice: pkhOf(S.A), bob: pkhOf(S.B), go_vk: S.go.vk, net: BigInt(NETWORK_ID), swap_id: S.swapId, a_c: pa.Q, b_c: pb.Q, t1: BigInt(S.T1), t2: BigInt(S.T2), t3: BigInt(S.T3), phase: 0n, t4: 0n, ...over };
@@ -164,6 +177,7 @@ async function refreshParams(S) { await S.lucid.switchProvider(S.L.em); }   // w
 async function lock(S, R, over = {}) {
   if (S.L.now() !== S.tSetup) throw new Error("lock: ledger time moved since setup; T0/T1/T2 in the transcript would be stale");
   S.swapId = swapIdOf(S, "alice");
+  { const m = minAdaLock9({ lovelace: ADA_LOCK, refundingDatumBytes: refundingDatumBytes(S) }); if (m) throw new Error("lock: " + m); }   // step 10 (review 6 R6-M3): W.1 before Alice locks
   const lucid = await as(S, S.A);
   const tx = await lucid.newTx().pay.ToContract(S.scriptAddr, { kind: "inline", value: datumOf(S, over) }, { lovelace: ADA_LOCK }).complete();
   const r = await S.L.submit((await tx.sign.withWallet().complete()).toCBOR(), "lock");
@@ -207,6 +221,7 @@ function bobChecksLock(S, { needSettled = true } = {}) {
   if (ad.stakeCredential) return "stake credential not agreed (escrow address must carry no stake credential)";
   if (u.address !== S.scriptAddr) return "wrong script address";
   if (Object.keys(u.assets).length !== 1 || BigInt(u.assets.lovelace) !== BigInt(rd(path.join(S.dir, "params.json")).lovelace)) return "wrong ADA amount / extra assets";
+  { const m = minAdaLock9({ lovelace: u.assets.lovelace, refundingDatumBytes: refundingDatumBytes(S) }); if (m) return m; }   // step 10 (review 6 R6-M3): W.1 min-ADA
   if (!u.datum) return u.datumHash ? "datum is a hash, not inline" : "no datum";
   const exp = expectedDatum(S);
   if (u.datum !== exp) return `datum bytes differ from the expected canonical datum: ${datumDiag(u.datum, exp)}`;
@@ -244,8 +259,12 @@ function zecGate(S) {   // step 6 R3-H1 + step 7 (review4 F4): own node, measure
   const node = nodeEra9(rpc, { configBranch: P.zec_branch, configEra: S.configEra, configSpacingS: S.configSpacingS });   // step 9 (R5-M2): era from the node
   if (node.refuse) return node.refuse;
   S.nodeEra = node;
-  return nu7Gate9({ st: rpc, node, measuredSpacing: st.measured_mean_spacing_s, spacingWindow: st.window, tailSeconds: REAL_TAIL_S, preT1Seconds: REAL_PRE_S,
+  const g = nu7Gate9({ st: rpc, node, measuredSpacing: st.measured_mean_spacing_s, spacingWindow: st.window, tailSeconds: REAL_TAIL_S, preT1Seconds: REAL_PRE_S,
     eosHeight: "eos" in meta ? meta.eos : (st.tip + meta.eosOffset), nodeSupportsNu7: S.nodeSupportsNu7 ?? true });
+  if (g) return g;
+  // step 10 (review 6 R6-M3): re-run the value cap with the era the NODE reports (valueCap9, R5-M2/M3). Setup's paramsCheck only
+  // has the configured era (valueCap7), because the node is not consulted until here, before Bob funds ZEC.
+  return valueCap9({ lovelace: P.lovelace, zats: P.zats, zDepth: P.z_depth, kDepth: P.k_depth, node, tier: PROFILE.tier, feed: P7feed === undefined ? FEED() : P7feed, now: Date.now(), exposureSoFar: P7exposure });
 }
 // v1 real window, setup → T2 = 252.1 min (model/step7_model.py, gate profile) + 24 h: the T3 tail is not blacked out (D19)
 const REAL_SWAP_S = Math.round(252.1 * 60) + 24 * 3600;
@@ -276,16 +295,17 @@ const commitTx = (S, sig, { upper = S.T1 - 1000, signer, out = null, utxo = null
     .pay.ToContract(S.scriptAddr, { kind: "inline", value: out ?? datumOf(S, { phase: 1n }) }, { lovelace: lovelace ?? BigInt(u.assets.lovelace) });
   if (upper !== null) t = t.validTo(upper); return t; };
 const revealTx = (S, b, { utxo = null, signer } = {}) => (tx) => tx.collectFrom([utxo ?? S.claimed], Reveal(b)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.B));
-const escapeTx = (S, from, { utxo = null, signer } = {}) => (tx) => tx.collectFrom([utxo ?? S.claimed], Escape).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A)).validFrom(from);
+const escapeTx = (S, from, { utxo = null, signer } = {}) => (tx) => tx.collectFrom([utxo ?? S.claimed], Escape).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A)).validFrom(lowerBoundMs(from, S.T3, slotCfg(S)));   // step 10 (A2): lower ≥ T3 survives slot rounding
 // step 8: Notice spends the OPEN escrow and recreates it with phase=2 and t4 = upper + TAIL (validity [from, to]).
+const slotCfg = (S) => ({ zeroTime: S.L.zeroTime, zeroSlot: 0, slotLength: 1000 });   // emulator ("Custom") slot config
 const refundingDatum = (S, to) => datumOf(S, { phase: 2n, t4: BigInt(to + TAIL) });
-const noticeTx = (S, from, { to = null, signer, utxo = null, out = null, lovelace = null } = {}) => (tx) => {
-  const u = utxo ?? S.escrow; const hi = to ?? from + NOTICE_TTL;
+const noticeTx = (S, from, { to = null, signer, utxo = null, out = null, lovelace = null, minLo } = {}) => (tx) => {
+  const u = utxo ?? S.escrow; const w = to !== null ? { from, hi: to } : noticeWindow(from, NOTICE_TTL, slotCfg(S), minLo); const hi = w.hi; from = w.from;
   return tx.collectFrom([u], Notice).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A))
     .pay.ToContract(S.scriptAddr, { kind: "inline", value: out ?? refundingDatum(S, hi) }, { lovelace: lovelace ?? BigInt(u.assets.lovelace) }).validFrom(from).validTo(hi); };
 // refundTx = RefundReveal{a} (on the Refunding UTxO by default; tests point it at Open/Claimed to show the script refuses)
 const refundTx = (S, a, from, signer, utxo = null) => (tx) => tx.collectFrom([utxo ?? S.refunding ?? S.escrow], RefundReveal(a)).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.A)).validFrom(from);
-const forfeitTx = (S, from, signer, utxo = null) => (tx) => tx.collectFrom([utxo ?? S.refunding ?? S.escrow], Forfeit).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.B)).validFrom(from);
+const forfeitTx = (S, from, signer, utxo = null) => (tx) => tx.collectFrom([utxo ?? S.refunding ?? S.escrow], Forfeit).attach.SpendingValidator(SCRIPT).addSignerKey(pkhOf(signer ?? S.B)).validFrom(lowerBoundMs(from, S.t4, slotCfg(S)));   // step 10 (A2): lower ≥ t4
 const goFields = (S, u = S.escrow, over = {}) => ({ networkId: NETWORK_ID, swapId: S.swapId, scriptHash: SCRIPT_HASH, txId: u.txHash, index: u.outputIndex, lovelace: u.assets.lovelace, t1: S.T1, ...over });
 
 // Alice's "go" (C-1 fix): she signs a MESSAGE about this escrow, never a transaction. Preconditions (H-2): the ZEC note
@@ -385,20 +405,12 @@ async function bobRedeem(S, R, b, { ignoreRule = false, maxBlocks = 60, hook = n
 // resubmit until it is K deep. Either party's settled Notice counts (Bob may Notice from T2). REVEAL a: only on the
 // phase-2 output of that settled Notice, with the exact expected datum (t4 = its upper + TAIL) and value, and only while
 // now ≤ t4 − M; then resubmit until settled — there is no deadline (t4 is ≥ TAIL away).
-function decodeCreating(tx, scriptAddr) {   // inputs (canonical order), script redeemers keyed by the outref they spend, outputs at the script
-  const b = tx.body(), ins = []; for (let i = 0; i < b.inputs().len(); i++) { const x = b.inputs().get(i); ins.push({ txHash: x.transaction_id().to_hex(), index: Number(x.index()) }); }
-  const sorted = [...ins].sort((p, q) => p.txHash < q.txHash ? -1 : p.txHash > q.txHash ? 1 : p.index - q.index);
-  const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(), scriptRedeemers = [];
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const r = reds.get(k); if (r.tag() !== 0) continue; const d = Data.from(r.data().to_cbor_hex()); const at = sorted[Number(r.index())]; if (at) scriptRedeemers.push({ ...at, tag: d.index }); }
-  const scriptOutputs = []; for (let i = 0; i < b.outputs().len(); i++) if (b.outputs().get(i).address().to_bech32() === scriptAddr) scriptOutputs.push(i);
-  return { inputs: ins, scriptRedeemers, scriptOutputs };
-}
 async function ownRefunding(S) {
   const us = await S.L.em.getUtxos(S.scriptAddr);
   S.provenanceRefusals = [];
   for (const u of us) { const tx = S.L.log.find(t => t.hash === u.txHash); if (!tx) continue;   // step 9 (R5-M1): no labels — provenance from the creating tx
     const ctx = CML.Transaction.from_cbor_hex(tx.txHex); const ttl = ctx.body().ttl(); if (ttl === undefined) { S.provenanceRefusals.push("no upper bound"); continue; }
-    const ttlMs = S.L.zeroTime + Number(ttl) * 1000;
+    const ttlMs = slotToMs(ttl, slotCfg(S));
     const creating = decodeCreating(ctx, S.scriptAddr);
     const why = refundProvenance9({ refund: { ...u }, creating, lock: { txHash: S.escrow.txHash, outputIndex: S.escrow.outputIndex }, scriptAddr: S.scriptAddr,
       expectedDatum: refundingDatum(S, ttlMs), lovelace: S.escrow.assets.lovelace, confs: Math.max(S.L.confirmations(u.txHash), K), K });   // depth is checked by the callers
@@ -411,7 +423,7 @@ async function aliceNotice(S, R, { at = S.T1, maxBlocks = 60, hook = null, ignor
   const who = signer ?? S.A;
   if (!ignoreRule) { const g = who === S.A ? noticeGate({ now: S.L.now(), T1: S.T1, escrowOpen: escrowLive(S) }) : bobNoticeGate({ now: S.L.now(), T2: S.T2, escrowOpen: escrowLive(S) }); if (g) return { settled: false, refused: g, builds: [] }; }
   const builds = [];
-  const once = async () => { await refreshParams(S); const from = Math.max(who === S.A ? S.T1 : S.T2, S.L.now() - 1000); const t = await build(S, who, noticeTx(S, from, { signer: who })); const r = await signSubmit(S, t, who, `${label}#${builds.length + 1}`, { direct: S.direct }); builds.push(r); return r; };
+  const once = async () => { await refreshParams(S); const from = Math.max(who === S.A ? S.T1 : S.T2, S.L.now() - 1000); const t = await build(S, who, noticeTx(S, from, { signer: who, minLo: who === S.A ? S.T1 : S.T2 })); const r = await signSubmit(S, t, who, `${label}#${builds.length + 1}`, { direct: S.direct }); builds.push(r); return r; };
   const tryOnce = async () => { try { return await once(); } catch (e) { if (/mempool conflict|MempoolFull/.test(e.message)) { S.L.events.push(`slot ${S.L.slot()}: ${label} not admitted (${e.message.slice(0, 60)}), retry next block`); return null; } throw e; } };
   let cur; try { cur = await tryOnce(); } catch (e) { return { settled: false, builds, why: "Notice not admitted: " + e.message }; }
   for (let i = 0; i < maxBlocks; i++) {
@@ -484,21 +496,27 @@ async function start(tag, R, { go = true } = {}) {
   return S;
 }
 async function aliceTakesZec(S, R, label = "Sweep (Alice, a+b)") {
-  // step 7: b is in the Reveal that spends the Claimed output (Alice reads mempool or chain). She also accepts a Reveal on
-  // ANY output of a Commit of her escrow, so a rebuilt Commit cannot hide it.
-  const u = S.claimed ?? await ownClaimed(S);
-  const sp = u ? S.L.spendingRedeemer(u.txHash, u.outputIndex) : null;
-  if (!sp || sp.redeemer.index !== 1) return { b: null, bHex: null, sw: { rejected: true, reason: "no Reveal seen" } };
-  const b = sp.redeemer.fields[0]; const bHex = leHex(b);
+  // step 11 (W-1; review 6 R6-L1): Alice takes b from HER OWN view — any Reveal{b} she has seen (mempool or chain) whose b
+  // opens B_c. She needs neither Bob's record of the Claimed outref nor a particular spending tx, so a rebuilt Commit or a
+  // decoy cannot hide it.
+  const b = aliceSeesB(S);
+  if (b === null) return { b: null, bHex: null, sw: { rejected: true, reason: "no Reveal seen" } };
+  const bHex = leHex(b);
   return { b, bHex, sw: sweep(S, R, "alice", [`other_share=${bHex}`], label) };
 }
 
 async function aliceTakesZecPeek(S) { const u = S.claimed; const sp = S.L.spendingRedeemer(u.txHash, u.outputIndex); const b = sp.redeemer.fields[0]; return { b, bHex: leHex(b) }; }
-const secretInMempool = (S, x) => S.L.seen.some(t => { const tx = CML.Transaction.from_cbor_hex(t.txHex); const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer();
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.fields?.some(f => typeof f === "bigint" && f === x)) return true; } return false; });
+// step 10 (review 6 R6-M2): the watchers below read legacy-array AND Conway map redeemers (txRedeemerData)
+const secretInMempool = (S, x) => S.L.seen.some(t => txRedeemerData(CML.Transaction.from_cbor_hex(t.txHex)).some(d => d.fields?.some(f => typeof f === "bigint" && f === x)));
 // step 8: any broadcast RefundReveal{a} (redeemer 3), whatever its label
-function refundA(S) { for (const t of S.L.seen) { const tx = CML.Transaction.from_cbor_hex(t.txHex);
-  const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer(); for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 3) return d.fields[0]; } } return null; }
+// step 11 (assessment W-1 + item 4): each party has its OWN view (party.mjs): its own feed of seen txs (S.feeds?.<party>, default
+// = everything the simulated network has seen), its own state file in its own directory, and a watcher that accepts a share
+// only if it opens the counterparty's datum point. A decoy redeemer is not "seen"; a real share is saved before it is used.
+function viewOf(S, role) {
+  S.views ??= {};
+  return S.views[role] ??= new PartyView({ role, dir: path.join(S.dir, role), otherPoint: rd(path.join(S.dir, `${role === "alice" ? "bob" : "alice"}/pub.json`)).Q, feed: () => (S.feeds?.[role] ?? (() => S.L.seen))() });
+}
+function refundA(S) { return viewOf(S, "bob").otherShare(); }   // Bob's view: a from any RefundReveal{a} with a·G1 = A_c
 // A bribed producer can include ANY valid tx regardless of what other mempools hold, so script-level rejections are
 // tested by submitting with the conflicting censored tx set aside (restored afterwards). (review4 helper)
 async function asideFrom(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
@@ -772,7 +790,7 @@ async function rbRefund() {
 async function zReorg() {
   const R = new Results("zreorg"); console.log("== H-2: Zcash reorgs and the live depth check");
   { const S = await start("zreorg-ds", R, { go: false });
-    zec(["reorg", ...S.d("n=3")]); // drop fund block (+2 empty)
+    zec(["reorg", ...S.d(`n=${ZDEPTH}`)]); // drop fund block (+ ZDEPTH−1 empty; step 10: was a literal 3 = the sim ZDEPTH)
     // Bob's double spend of his funding input, then the original funding can no longer be mined
     const ss = zec(["selfspend", ...S.d()]); zec(["submit", ...S.d(`tx=${ss.tx}`)]); zec(["mine", ...S.d("n=3")]);
     const re = zec(["submit", ...S.d(`tx=${S.dir}/fund.tx`)], true);
@@ -795,7 +813,7 @@ async function zExpiry() {
   const S = await newSwap("zexpiry"); doSetup(S); zec(["genesis", ...S.d()]);
   const tip = zec(["watch", ...S.d("party=alice", `amount=${ZEC_AMT}`, "min_depth=1")], true).tip;
   const f = zec(["fund", ...S.d(`amount=${ZEC_AMT}`, `pay=${ZEC_AMT}`, `out=${S.dir}/f40.tx`)]);
-  R.rec("wallet-default fund tx carries expiry_height = target height (tip+1) + 40 (ZIP 203, pre-NU7 era)", "accept", f.info.expiry_height === tip + 1 + 40, `tip ${tip}, expiry ${f.info.expiry_height}`);
+  R.rec(`wallet-default fund tx carries expiry_height = target height (tip+1) + ${REH ? "120 (NU7 era)" : "40 (ZIP 203, pre-NU7 era)"}`, "accept", f.info.expiry_height === tip + 1 + (REH ? 120 : 40), `tip ${tip}, expiry ${f.info.expiry_height}`);
   const e = zec(["fund", ...S.d(`amount=${ZEC_AMT}`, `pay=${ZEC_AMT}`, `out=${S.dir}/fexp.tx`, `expiry=${tip + 1}`)]);
   zec(["mine", ...S.d("n=1")]);
   const s1 = zec(["submit", ...S.d(`tx=${S.dir}/fexp.tx`)], true);
@@ -1068,14 +1086,15 @@ async function capCases() {
   const amt = (u) => ({ lovelace: 0, zats: Math.floor(u / FEED().zecUsd * 1e8) });
   const base = { kDepth: 15, era: "nu7", tier: "v1", now: Date.now() };
   { const S = await newSwap("cap-ok"); const st = doSetup(S); R.rec(`default swap ($${usd(ADA_LOCK, ZEC_AMT).toFixed(0)} at feed prices) at K=15, Z=69 post-NU7: accepted`, "accept", st.alice.ok && st.bob.ok, st.alice.reason); }
-  { const S = await newSwap("cap-z60", { profile: { zDepth: 60 } }); const st = doSetup(S);
-    R.rec("step-5 depth Z=60 refused (needs 69 for ε=1e-3 at q=0.35 with 5% stales)", "reject /Z=60 < 69/", !st.alice.ok && /Z=60 < 69/.test(st.alice.reason ?? ""), st.alice.reason); }
+  { const zt = REH ? 29 : 60, zre = REH ? /depth below floor .*Z ≥ 30/ : /Z=60 < 69/;   // step 10 (A5): rehearsal profile floor is Z = 30
+    const S = await newSwap("cap-z60", { profile: { zDepth: zt } }); const st = doSetup(S);
+    R.rec(REH ? "rehearsal depth Z=29 refused (post-NU7 floor 30)" : "step-5 depth Z=60 refused (needs 69 for ε=1e-3 at q=0.35 with 5% stales)", `reject /${zre.source}/`, !st.alice.ok && zre.test(st.alice.reason ?? ""), st.alice.reason); }
   { const v = valueCap7({ ...base, ...amt(600), zDepth: 64, feed: FEED() }); R.rec("Z=64 (enough only at 3.26% stales) refused at the 5% stale assumption", "reject /< 69/", /< 69/.test(v ?? ""), v); }
   { const S = await newSwap("cap-big", { paramsOver: { zats: 2_000_000_000 } }); const st = doSetup(S);
-    R.rec(`20 ZEC ($${usd(ADA_LOCK, 2e9).toFixed(0)} at feed prices) above the $15,000 v1 cap: both refuse`, "reject /above the v1 cap/", st.alice.code !== 0 && st.bob.code !== 0 && /above the v1 cap/.test(st.alice.reason ?? ""), st.alice.reason); }
+    R.rec(`20 ZEC ($${usd(ADA_LOCK, 2e9).toFixed(0)} at feed prices) above the $15,000 v1 cap: both refuse`, `reject /above the ${PROFILE.tier} cap/`, st.alice.code !== 0 && st.bob.code !== 0 && new RegExp(`above the ${PROFILE.tier} cap`).test(st.alice.reason ?? ""), st.alice.reason); }
   { const P = rd(path.join((await newSwapLite()).dir, "params.json"));
     P7feed = { ...FEED(), zecUsd: FEED().zecUsd * 30 }; const v = paramsCheck(P); P7feed = undefined;
-    R.rec("review4 F3: the SAME 0.5 ZEC swap with the feed's ZEC price ×30 is refused (the cap follows the live feed, not constants)", "reject /above the v1 cap/", /above the v1 cap/.test(v ?? ""), v);
+    R.rec(`review4 F3: the SAME ${ZEC_AMT / 1e8} ZEC swap with the feed's ZEC price ×30 is refused (the cap follows the live feed, not constants)`, `reject /above the ${PROFILE.tier} cap/`, new RegExp(`above the ${PROFILE.tier} cap`).test(v ?? ""), v);
     for (const [nm, fd, re] of [["feed missing", null, /no pool-share/], ["ZEC price NaN", { ...FEED(), zecUsd: NaN }, /ZEC\/USD price/], ["ADA price negative", { ...FEED(), adaUsd: -1 }, /ADA\/USD price/],
         ["feed dated 2 h in the future", { ...FEED(), asOf: Date.now() + 2 * 3600e3 }, /in the future/], ["feed 25 h old", { ...FEED(), asOf: Date.now() - 25 * 3600e3 }, /h old/], ["feed without a date", { ...FEED(), asOf: undefined }, /no valid date/]]) {
       P7feed = fd; const w = paramsCheck(P); P7feed = undefined; R.rec(`setup with ${nm}: refused (fail closed)`, `reject /${re.source}/`, re.test(w ?? ""), w); }
@@ -1242,8 +1261,7 @@ async function zecNodeCases() {
 
 
 // ======================= step 8: griefing, refund-trap fork, censorship of both refund steps, races =======================
-const aliceSeesB = (S) => { for (const t of S.L.seen) { const tx = CML.Transaction.from_cbor_hex(t.txHex); const reds = tx.witness_set().redeemers()?.as_arr_legacy_redeemer();
-  for (let k = 0; k < (reds?.len() ?? 0); k++) { const d = Data.from(reds.get(k).data().to_cbor_hex()); if (d.index === 1 && typeof d.fields[0] === "bigint") return d.fields[0]; } } return null; };
+const aliceSeesB = (S) => viewOf(S, "alice").otherShare();   // step 11 (W-1): Alice's own view; b only if b·G1 = B_c (either redeemer encoding)
 // A bribed producer can include ANY valid tx regardless of what other mempools hold (conflicting censored txs set aside).
 async function asideFrom8(S, re, fn) { const keep = S.L.pending.filter(p => re.test(p.label)); S.L.pending = S.L.pending.filter(p => !re.test(p.label));
   try { return await fn(); } finally { const now = new Set(S.L.pending.map(p => p.hash)); S.L.pending = S.L.pending.filter(p => !keep.some(k => [...k.inputs].some(i => p.inputs.has(i)))).concat(keep.filter(k => !now.has(k.hash))); } }
@@ -1580,10 +1598,10 @@ async function r9FakeRefunding() {
   R.rec("censorship ends: her REAL Notice settles and RefundReveal spends the real escrow (look-alike ignored)", "accept", n2.settled && rr2.settled && S.refunding.txHash !== fr.txHash, n2.why ?? rr2.refused);
   // unit probes on the decoded creating tx: Notice that spends a DIFFERENT outref; Notice with two script outputs
   const base = { refund: { txHash: "aa", outputIndex: 0, address: S.scriptAddr, datum: "d", assets: { lovelace: 5n } }, lock: { txHash: "11", outputIndex: 0 }, scriptAddr: S.scriptAddr, expectedDatum: "d", lovelace: 5n, confs: K, K };
-  R.rec("probe: creating tx spends another escrow's outref → refused", "reject /lock outref/", /lock outref/.test(refundProvenance9({ ...base, creating: { inputs: [{ txHash: "22", index: 0 }], scriptRedeemers: [{ txHash: "22", index: 0, tag: 2 }], scriptOutputs: [0] } }) ?? ""));
+  R.rec("probe: creating tx spends another escrow's outref → refused", "reject /lock outref/", /lock outref/.test(refundProvenance9({ ...base, creating: { inputs: [{ txHash: "22", index: 0 }], scriptRedeemers: [{ txHash: "22", index: 0, constr: 2 }], scriptOutputs: [0] } }) ?? ""));
   R.rec("probe: lock spent with a non-Notice redeemer → refused", "reject /redeemer Notice/", /redeemer Notice/.test(refundProvenance9({ ...base, creating: { inputs: [{ txHash: "11", index: 0 }], scriptRedeemers: [{ txHash: "11", index: 0, tag: 0 }], scriptOutputs: [0] } }) ?? ""));
-  R.rec("probe: two script outputs (not the single continuing output) → refused", "reject /continuing output/", /continuing output/.test(refundProvenance9({ ...base, creating: { inputs: [{ txHash: "11", index: 0 }], scriptRedeemers: [{ txHash: "11", index: 0, tag: 2 }], scriptOutputs: [0, 1] } }) ?? ""));
-  R.rec("probe: correct lineage → accepted", "accept", refundProvenance9({ ...base, creating: { inputs: [{ txHash: "11", index: 0 }], scriptRedeemers: [{ txHash: "11", index: 0, tag: 2 }], scriptOutputs: [0] } }) === null);
+  R.rec("probe: two script outputs (not the single continuing output) → refused", "reject /continuing output/", /continuing output/.test(refundProvenance9({ ...base, creating: { inputs: [{ txHash: "11", index: 0 }], scriptRedeemers: [{ txHash: "11", index: 0, constr: 2 }], scriptOutputs: [0, 1] } }) ?? ""));
+  R.rec("probe: correct lineage → accepted", "accept", refundProvenance9({ ...base, creating: { inputs: [{ txHash: "11", index: 0 }], scriptRedeemers: [{ txHash: "11", index: 0, constr: 2 }], scriptOutputs: [0] } }) === null);
   return { R, S };
 }
 // R5-M2: era / branch / spacing / version / EOS from the node; R5-M3: Z from price
@@ -1656,7 +1674,116 @@ async function r9MinAda() {
   return { R };
 }
 
-const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: nu7Cases, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: r9Era, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda };
+// step 10 (audit A2): a wallet clock that is not on a slot boundary. Before the fix the Notice datum used the raw ms upper
+// bound while the ledger floors it to a slot, so the script rejected Alice's (and Bob's) Notice outright.
+async function r10Unaligned() {
+  const R = new Results("r10_unaligned"); console.log("== step 10 (audit A2): Notice built from a clock that is not on a slot boundary");
+  const S = await start("r10-unaligned", R);
+  const aliceX = secret(S, "alice");
+  await S.L.untilMs(S.T1 + 5000);
+  const from = S.L.now() + 437;   // real wall clocks are not slot-aligned
+  let r; try { r = await signSubmit(S, await build(S, S.A, noticeTx(S, from)), S.A, "notice_unaligned"); } catch (e) { r = { rejected: true, reason: e.message }; }
+  R.rec("Notice built from an unaligned clock is admitted (datum t4 = the on-chain upper bound + tail)", "accept", r && !r.rejected, r?.reason);
+  await S.L.awaitBlock(K + 1);
+  const o = await ownRefunding(S);
+  R.rec("Alice's provenance check recognises it as her own Refunding UTxO, K deep", "accept", !!o && S.L.confirmations(o.hash) >= K, (S.provenanceRefusals ?? []).join(" | "));
+  if (o) { const rr = await aliceRefundReveal(S, R, aliceX); R.rec("…and her RefundReveal{a} settles", "accept", rr.settled, rr.why ?? rr.refused); }
+  return { R, S };
+}
+
+// step 10 (review 6 R6-M2): a Reveal{b} / RefundReveal{a} whose redeemers are Conway map-encoded must still be seen by every
+// watcher that pulls a secret out of a tx (before: only the legacy array was read, so the secret went unnoticed).
+function mapRedeemerTx(outref, constr, fields) {
+  const ins = CML.TransactionInputList.new(); ins.add(CML.TransactionInput.new(CML.TransactionHash.from_hex(outref.txHash), BigInt(outref.outputIndex)));
+  const outs = CML.TransactionOutputList.new(); outs.add(CML.TransactionOutput.new(CML.Address.from_bech32(SCRIPT_ADDR_ANY()), CML.Value.from_coin(2_000_000n)));
+  const m = CML.MapRedeemerKeyToRedeemerVal.new();
+  m.insert(CML.RedeemerKey.new(CML.RedeemerTag.Spend, 0n), CML.RedeemerVal.new(CML.PlutusData.from_cbor_hex(Data.to(new Constr(constr, fields))), CML.ExUnits.new(1_000_000n, 500_000_000n)));
+  const ws = CML.TransactionWitnessSet.new(); ws.set_redeemers(CML.Redeemers.new_map_redeemer_key_to_redeemer_val(m));
+  return CML.Transaction.new(CML.TransactionBody.new(ins, outs, 300_000n), ws, true, undefined).to_cbor_hex();
+}
+const SCRIPT_ADDR_ANY = () => validatorToAddress("Custom", SCRIPT);
+async function r10Review6() {
+  const R = new Results("r10_review6"); console.log("== step 10 (review 6): map-encoded redeemers in the secret watchers (R6-M2); policy9 gates wired in (R6-M3)");
+  { const S = await newSwap("r10-r6-map"); doSetup(S);   // step 11 (W-1): the watchers accept only the swap's REAL shares, so the test now reveals those
+    const claimed = { txHash: "c1".repeat(32), outputIndex: 0 }, refunding = { txHash: "c2".repeat(32), outputIndex: 0 };
+    const b = secret(S, "bob"), a = secret(S, "alice");
+    const extra = [{ txHex: mapRedeemerTx(claimed, 1, [b]), label: "reveal_map", hash: "r6m2-reveal" }, { txHex: mapRedeemerTx(refunding, 3, [a]), label: "refund_reveal_map", hash: "r6m2-refund" }];
+    S.L.seen.push(...extra);
+    try {
+      R.rec("Reveal{b} with map-encoded redeemers: Alice's watcher (aliceSeesB) extracts b", "accept", aliceSeesB(S) === b, aliceSeesB(S));
+      R.rec("RefundReveal{a} with map-encoded redeemers: Bob's watcher (refundA) extracts a", "accept", refundA(S) === a, refundA(S));
+      R.rec("mempool secret scan (secretInMempool) sees b and a in map-encoded txs", "accept", secretInMempool(S, b) && secretInMempool(S, a));
+      const sp = S.L.spendingRedeemer(claimed.txHash, claimed.outputIndex);
+      R.rec("ledger watcher (spendingRedeemer) decodes the map-encoded Reveal{b} on the Claimed outref", "accept", sp?.redeemer?.index === 1 && sp.redeemer.fields[0] === b, sp && Data.to(sp.redeemer));
+    } finally { S.L.seen = S.L.seen.filter(t => !extra.includes(t)); }
+  }
+  { const S = await newSwap("r10-r6-blackout"); const P = rd(path.join(S.dir, "params.json"));
+    const H = P7.blackoutH * 3600e3, now = Date.now();
+    const at = now + (P.t2 - P.t0) + T0_OFF + H + Math.round((P.t3 - P.t2) / 2);   // after the old window end (T2 + margin), before T3 + margin
+    P7upgrades = [{ name: "Cardano hard fork (test, between T2 and T3)", atMs: at }]; const u = paramsCheck(P); P7upgrades = undefined;
+    R.rec("an upgrade scheduled between T2 and T3 (+ margin) is inside the blackout: refused at setup", "reject /upgrade blackout/", /upgrade blackout/.test(u ?? ""), u);
+    P7upgrades = [{ name: "far upgrade", atMs: now + (P.t3 - P.t0) + T0_OFF + H + 3600e3 }]; const u2 = paramsCheck(P); P7upgrades = undefined;
+    R.rec("control: an upgrade after T3 + margin: accepted", "accept", u2 === null, u2); }
+  { const S = await newSwap("r10-r6-cap9"); doSetup(S); zec(["genesis", ...S.d()]); zec(["mine", ...S.d(`n=${ZEC_HISTORY}`)]);
+    const ok = zecGate(S); R.rec("Bob's Zcash gate with the honest feed: allowed (control)", "accept", ok === null, ok);
+    P7feed = { ...FEED(), zecUsd: FEED().zecUsd * 30 }; const g = zecGate(S); P7feed = undefined;
+    R.rec(`Bob's Zcash gate re-runs the value cap with the node's era (${S.nodeEra?.era}): an over-cap swap is refused before he funds ZEC`, "reject /REFUSE: .*(cap|Z=)/", /REFUSE: .*(cap|Z=)/.test(g ?? ""), g); }
+  { const S = await newSwap("r10-r6-minada"); doSetup(S); await lock(S, R); await S.L.awaitBlock(K);
+    R.rec("control: Bob accepts the honest 1000 ADA lock", "accept", bobChecksLock(S) === null, bobChecksLock(S));
+    const small = 1_500_000, pf = path.join(S.dir, "params.json"), P = rd(pf);
+    fs.writeFileSync(pf, JSON.stringify({ ...P, lovelace: small }, null, 1)); S.escrow = { ...S.escrow, assets: { lovelace: BigInt(small) } };
+    const bad = bobChecksLock(S); R.rec("a lock below minADA(Refunding datum) + margin (agreed at 1.5 ADA): Bob refuses to fund (W.1)", "reject /minADA/", /minADA/.test(bad ?? ""), bad); }
+  return { R };
+}
+
+// step 11 (Nov 9 assessment W-1, W-2): the secret watchers must ignore Reveal-/RefundReveal-shaped redeemers whose integer is
+// not the counterparty's share (x·G1 ≠ the datum point), and the ledger watcher must pair redeemers with inputs in SORTED order.
+function twoSpendTx(first, second, r1, r2) {   // body lists `first` before `second`; redeemer indexes follow the ledger's sorted order
+  const ins = CML.TransactionInputList.new(); for (const o of [first, second]) ins.add(CML.TransactionInput.new(CML.TransactionHash.from_hex(o.txHash), BigInt(o.outputIndex)));
+  const outs = CML.TransactionOutputList.new(); outs.add(CML.TransactionOutput.new(CML.Address.from_bech32(SCRIPT_ADDR_ANY()), CML.Value.from_coin(2_000_000n)));
+  const sorted = [first, second].slice().sort((p, q) => p.txHash < q.txHash ? -1 : p.txHash > q.txHash ? 1 : p.outputIndex - q.outputIndex);
+  const m = CML.MapRedeemerKeyToRedeemerVal.new();
+  for (const [o, r] of [[first, r1], [second, r2]]) m.insert(CML.RedeemerKey.new(CML.RedeemerTag.Spend, BigInt(sorted.indexOf(o))), CML.RedeemerVal.new(CML.PlutusData.from_cbor_hex(Data.to(r)), CML.ExUnits.new(1_000_000n, 500_000_000n)));
+  const ws = CML.TransactionWitnessSet.new(); ws.set_redeemers(CML.Redeemers.new_map_redeemer_key_to_redeemer_val(m));
+  return CML.Transaction.new(CML.TransactionBody.new(ins, outs, 300_000n), ws, true, undefined).to_cbor_hex();
+}
+async function r11Decoy() {
+  const R = new Results("r11_decoy"); console.log("== step 11 (assessment W-1/W-2): decoy secrets cannot block Escape/Forfeit or hide the real secret; redeemers pair with sorted inputs");
+  const other = (h) => ({ txHash: h.repeat(32), outputIndex: 0 });
+  { const S = await start("r11-escape", R);
+    const c = await bobCommit(S, R); R.rec("Bob's Commit settles, then Bob stalls (no Reveal)", "accept", c.settled, c.why);
+    await S.L.untilMs(S.T3 - 60_000);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d0"), 1, [12345n]), label: "decoy_reveal", hash: "r11-decoy-b" });   // Reveal-shaped, any script, junk integer
+    R.rec("W-1: a Reveal-shaped redeemer with a junk integer (12345·G1 ≠ B_c) is NOT taken as b", "accept", aliceSeesB(S) === null, String(aliceSeesB(S)));
+    await S.L.untilMs(S.T3);
+    const eg = escapeGate({ now: S.L.now(), T3: S.T3, claimed: !!S.L.entry(S.claimed.txHash + S.claimed.outputIndex), sawB: aliceSeesB(S) !== null });
+    R.rec("W-1: at T3 Alice's Escape gate still passes despite the decoy", "accept", eg === null, eg);
+    await refreshParams(S); const e = await signSubmit(S, await build(S, S.A, escapeTx(S, S.T3)), S.A, "escape"); await S.L.awaitBlock(K);
+    R.rec("…and her Escape settles: ADA back to Alice", "accept", S.L.confirmations(e.txHash) >= K); }
+  { const S = await start("r11-reveal", R); const bobX = secret(S, "bob");
+    const c = await bobCommit(S, R); R.rec("Bob's Commit settles", "accept", c.settled, c.why);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d2"), 1, [777n]), label: "decoy_reveal", hash: "r11-decoy-b2" });   // decoy is seen BEFORE the real Reveal
+    const r = await bobReveal(S, R, bobX); R.rec("Bob's real Reveal{b} settles after the decoy was broadcast", "accept", r.settled, r.refused ?? r.why);
+    R.rec("W-1: Alice's watcher skips the decoy and returns the real b", "accept", aliceSeesB(S) === bobX, String(aliceSeesB(S)));
+    const sw = sweep(S, R, "alice", [`other_share=${leHex(aliceSeesB(S) ?? 0n)}`], "Sweep (Alice, a+b, decoy present)"); R.rec("…and she sweeps the ZEC with it", "accept", sw.accepted === true, sw.reason); }
+  { const S = await start("r11-forfeit", R, { go: false });
+    const n = await aliceNotice(S, R); R.rec("Alice's Notice settles; she then stalls", "accept", n.settled, n.why);
+    S.L.seen.push({ txHex: mapRedeemerTx(other("d1"), 3, [777n]), label: "decoy_refund_reveal", hash: "r11-decoy-a" });
+    R.rec("W-1: a RefundReveal-shaped redeemer with a junk integer (777·G1 ≠ A_c) is NOT taken as a", "accept", refundA(S) === null, String(refundA(S)));
+    await S.L.untilMs(S.t4);
+    const f = await bobForfeit(S, R); R.rec("W-1: at t4 Bob's Forfeit still goes through despite the decoy", "accept", f.settled, f.refused); }
+  { const S = await newSwap("r11-w2");
+    const lo = other("01"), hi = other("fe");   // body order: hi first, lo second; sorted order: lo (index 0), hi (index 1)
+    S.L.seen.push({ txHex: twoSpendTx(hi, lo, new Constr(1, [1111n]), new Constr(5, [])), label: "two_spends", hash: "r11-w2" });
+    const a = S.L.spendingRedeemer(hi.txHash, 0), b = S.L.spendingRedeemer(lo.txHash, 0);
+    R.rec("W-2: spendingRedeemer returns each input's OWN redeemer when the body order differs from the sorted order", "accept", a?.redeemer?.index === 1 && a.redeemer.fields[0] === 1111n && b?.redeemer?.index === 5, `${a && Data.to(a.redeemer)} / ${b && Data.to(b.redeemer)}`);
+    const stray = { txHex: mapRedeemerTx(other("aa"), 1, [5n]).replace("aa".repeat(32), "ab".repeat(32)), label: "x", hash: "r11-w2b" };   // control: single input, single redeemer still found
+    S.L.seen.push(stray); const c2 = S.L.spendingRedeemer("ab".repeat(32), 0);
+    R.rec("control: a single-input spend still decodes", "accept", c2?.redeemer?.index === 1 && c2.redeemer.fields[0] === 5n, c2 && Data.to(c2.redeemer)); }
+  return { R };
+}
+
+const all = { l1: l1Cases, happy, refund, punish, setup: setupCheats, c1fee: () => c1("fee"), c1cost: () => c1("costmodel"), c2, c3, rbredeem: rbRedeem, rbrefund: rbRefund, zreorg: zReorg, zexpiry: zExpiry, gomsg: goCases, f1: f1Cases, hostage, f2: gokeyCases, timing: timingCases, seenhex: seenhexCases, cap: capCases, nu7: async () => { PIN_NU63 = true; try { return await nu7Cases(); } finally { PIN_NU63 = false; } }, congestion: congestionCases, congestion2: congestion2Cases, congestion3: congestion3Cases, laterefund: lateRefundCases, refscript: refscriptCases, premium: premiumCases, zecnode: zecNodeCases, g8_stall_escape: stallEscape, g8_refund_trap: refundTrap, g8_refund_censored: refundCensored, g8_censor_both: bothStepsCensored, g8_alice_stalls: aliceStalls, g8_race: commitNoticeRace, tp_happy: tpHappy, tp_censor_commit: tpCensorCommit, tp_censor_reveal: tpCensorReveal, tp_censor_to_t3: tpCensorToT3, tp_commit_rollback: tpCommitRollback, tp_bob_silent: tpBobSilent, tp_commit_cheats: tpCommitCheats, r9_hold_to_t3: r9HoldToT3, r9_hold_runs_to_t3: r9HoldRunsToT3, r9_fake_refunding: r9FakeRefunding, r9_era: async () => { PIN_NU63 = true; try { return await r9Era(); } finally { PIN_NU63 = false; } }, r9_fork_multi: r9ForkMulti, r9_minada: r9MinAda, r10_unaligned: r10Unaligned, r10_review6: r10Review6, r11_decoy: r11Decoy };
 const out = {}; const t0 = Date.now();
 for (const [k, f] of Object.entries(all)) {
   if (which !== "all" && which !== k) continue;
@@ -1671,3 +1798,5 @@ fs.mkdirSync(path.join(ROOT, "results"), { recursive: true });
 const f = path.join(ROOT, "results", `e2e9-${which}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
 fs.writeFileSync(f, JSON.stringify(out, (k, v) => typeof v === "bigint" ? Number(v) : v, 2));
 console.log("results:", f, "elapsed", out.elapsed_s, "s");
+// step 11 (CI): a failed or crashed group fails the process, so a workflow cannot report green on a red run.
+if (Object.keys(all).some(k => out[k] && out[k].pass !== true)) process.exit(1);

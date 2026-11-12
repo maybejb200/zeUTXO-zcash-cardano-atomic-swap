@@ -44,4 +44,5 @@ lock = {"happy_path_alice_ada_min": round(V1["LAST_COMMIT"] + V1["S"], 1),
 out = {"derivation": __doc__, "v1_gate_37.5s_sigma0.25_min": V1, "v1_nominal_25s_min": NOM, "rehearsal_now_Z10_75s_min": REH,
        "options": opts, "lockups": lock, "nu7_blackout_swap_seconds_v1": round(V1["T2"] * 60 + 86400)}
 print(json.dumps(out, indent=1))
-json.dump(out, open("../results/step8_model.json", "w"), indent=1)
+import os; _d = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../results"); os.makedirs(_d, exist_ok=True)   # step 10: cwd-independent (was box layout)
+json.dump(out, open(os.path.join(_d, "step8_model.json"), "w"), indent=1)

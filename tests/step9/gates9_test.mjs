@@ -1,6 +1,6 @@
 // step 9: review5's 12 gate probes re-run as BEHAVIOUR tests against policy9 (no source greps). Each must now be safe.
 import fs from "fs";
-import { revealGate9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, refundProvenance9, minAdaLock9, P9, P7 } from "../ada/policy9.mjs";
+import { revealGate9, nodeEra9, nu7Gate9, valueCap9, zNeeded9, refundProvenance9, minAdaLock9, P9, P7 } from "../../src/ada/policy9.mjs";
 const out = []; const t = (id, name, safe, detail) => { out.push({ id, name, safe: !!safe, detail: String(detail ?? "") }); console.log(`${safe ? "[safe]   " : "[FINDING]"} ${id} ${name} — ${detail ?? ""}`); };
 const now = Date.now(), MIN = 60e3, DAY = 86400e3, M = 54.9 * MIN, T3 = 7 * DAY;
 const FEED = (o = {}) => ({ asOf: now - 3600e3, pools: [0.33, 0.145, 0.12, 0.1], zecUsd: 1254.54, adaUsd: 0.188, ...o });
@@ -24,10 +24,11 @@ const rg = (o) => revealGate9({ commitConfs: 15, K: 15, commitSettledAt: 30 * MI
 { const v = valueCap9({ ...base, zats: 1_000_000, zDepth: 10, node: nodeNu7, tier: "rehearsal" }); t("N7", "rehearsal Z=10 post-NU7 refused (floor 30)", v !== null, v); }
 { const v = refundProvenance9({ refund: { txHash: "f", outputIndex: 0, address: "s", datum: "d", assets: { lovelace: 5n } }, creating: { inputs: [{ txHash: "bob-wallet", index: 0 }], scriptRedeemers: [], scriptOutputs: [0] }, lock: { txHash: "lock", outputIndex: 0 }, scriptAddr: "s", expectedDatum: "d", lovelace: 5n, confs: 15, K: 15 });
   t("P1", "look-alike Refunding UTxO (plain payment) refused by provenance", /lock outref/.test(v ?? ""), v); }
-{ const src = fs.readFileSync(new URL("../ada/e2e9.mjs", import.meta.url), "utf8"); const n = (src.match(/"observe", true\)/g) || []).length, notes = (src.match(/"observe", true, /g) || []).length;
+{ const src = fs.readFileSync(new URL("../../src/ada/e2e9.mjs", import.meta.url), "utf8"); const n = (src.match(/"observe", true\)/g) || []).length, notes = (src.match(/"observe", true, /g) || []).length;
   t("T1", "no e2e9 check is a constant 'true' (the 3 f2 '(observe)' library notes carry evidence, documented D44)", n === 0 && notes === 3, `${n} constant checks; ${notes} f2 notes`); }
 { const v = minAdaLock9({ lovelace: (160 + 57 + 300) * 4310, refundingDatumBytes: 308 }); t("MA", "lock at Open-datum min-ADA refused by W.1 min-ADA rule", /minADA/.test(v ?? ""), v); }
 { const tip = 3_600_000; const v = nu7Gate9({ st: st7({ tip }), node: nodeNu7, measuredSpacing: 25, spacingWindow: 48, tailSeconds: 7.2 * 86400, preT1Seconds: 15000, eosHeight: tip + 20000, nodeSupportsNu7: true }); t("L2", "Zebra EOS before T3 + 24 h refused", /end-of-support/.test(v ?? ""), v); }
 const bad = out.filter(o => !o.safe);
 console.log(`\n${out.length} probes, ${out.length - bad.length} safe, ${bad.length} findings: ${bad.map(o => o.id).join(", ")}`);
-fs.writeFileSync(new URL("../results/gates9_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
+fs.writeFileSync(new URL("../../results/step9/gates9_test.results.json", import.meta.url), JSON.stringify(out, null, 1));
+process.exit(bad.length ? 1 : 0);   // step 11 (CI): a fail-open probe fails the run
