@@ -1,6 +1,6 @@
 # Security exclusions
 
-This repository is a curated copy of the zeUTXO working tree on the research box. The following were **deliberately left out**.
+This repository is a curated copy of the zeUTXO working tree on the research box. Before it was made public (Nov 12, 2026), every branch and the full git history were scanned again for keys, seeds, wallet files, tokens, credentials and personal paths; nothing secret was found. The following were **deliberately left out**.
 
 | Category excluded | Examples in the working tree | Why |
 |---|---|---|
@@ -21,7 +21,7 @@ This repository is a curated copy of the zeUTXO working tree on the research box
 - `va` / `vb` constants in the Aiken escrow tests (`src/ada/onchain/validators/escrow.ak`, `tests/feasibility/test_c_aiken/…`, `tests/review4/aiken_twophase/…`). `va` is the digits of π. `vb` is a throwaway scalar printed by the step 1 DLEQ test (`results/feasibility/test_b_dleq_run_output.txt`, `AIKEN_VECTOR`) and used only as a unit-test vector for the "revealed share matches commitment" check. It never guarded funds on any chain. **Judgment call:** kept, because removing it would break the validator's unit tests.
 - `src/ada/vectors.json`: Ed25519 go-message signature vectors (public keys and signatures only; the signing key is generated fresh by `gen_vectors.mjs` and not saved).
 - Hex strings in results and logs: swap ids, simulated txids, public keys, public points, the note commitment / nullifier from a simulated run, and Aiken property-test PRNG `seed` values. All are public by nature.
-- R1 testnet transaction ids in `docs/history/R1/` (public Zcash testnet / regtest). They are not secrets, but they do link to R1's test wallets. Remove them before any *public* release if that matters.
+- R1 testnet transaction ids in `docs/history/R1/` (public Zcash testnet / regtest). They are not secrets. They link only to R1's throwaway test wallets, so they were kept for the public release.
 
 ## Scan performed before committing
 - `rg` over the whole tree for: `skey|mnemonic|seed|private|secret|BEGIN .* KEY|xprv|xsk|password|api_key|token` and 64+-hex strings near `sk`/`secret`/`nonce`. Every hit was reviewed by hand (results listed above).

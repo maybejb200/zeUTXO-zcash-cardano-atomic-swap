@@ -1,21 +1,26 @@
-# zeUTXO
+# zeUTXO: trustless private atomic swaps between shielded Zcash and Cardano
 
-**Research toward a fully trustless, private swap between shielded Zcash (ZEC) and Cardano (ADA).**
+**A research prototype of a cross-chain atomic swap between shielded Zcash (ZEC, Orchard / "Ironwood" pool) and Cardano (ADA), using adaptor signatures, a cross-group DLEQ proof (Pallas ↔ BLS12-381) and a single Aiken escrow contract.** No exchange, custodian, bridge, oracle, relay or light client is trusted, and the ZEC never leaves Zcash's shielded pool.
 
-Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They should be able to trade directly: no exchange, custodian, bridge, oracle or relay to trust, with the ZEC kept inside Zcash's shielded pool. Either both get paid, or each gets compensated without the other's help.
+Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They trade directly: either both get paid, or each gets compensated without the other's help.
 
-## Current status (Nov 3, 2026)
+Keywords: atomic swap, cross-chain swap, Zcash, Cardano, shielded, Orchard, adaptor signatures, scriptless scripts, DLEQ, Farcaster / COMIT style swap, Aiken, Plutus, privacy, DEX.
 
-- **Design:** "Path 1", a Farcaster/COMIT-style adaptor-signature swap. Spec **v0.7** (escrow contract v0.7) is in [`spec/spec.md`](spec/spec.md).
-- **Validation:** simulator only. Step 9 passes **683/683** end-to-end checks, 76 Aiken tests (71 + 5 review-5 tests), 13/13 + 58/58 wallet-gate probes and 10/10 PoK checks.
-- **Reviews:** five adversarial reviews, plus a **Review 6 project assessment & pre-rehearsal audit** in [`docs/reviews/review6-assessment-and-recommendations.md`](docs/reviews/review6-assessment-and-recommendations.md). Review 5 gave a CONDITIONAL PASS; its High finding (H1) and Medium findings were fixed in step 9. Review 6 assesses the overall viability, audits the step 9 wallet code, and details tiered recommendations.
-- **Next:** a testnet rehearsal (Zcash testnet + Cardano preprod, throwaway keys, faucet coins only) is approved and starts **after Nov 9, 2026**. See [`docs/rehearsal/proposal-v2.md`](docs/rehearsal/proposal-v2.md).
-- **Earlier efforts:** R1 (archived Sept 10, no-go), R2 (paused Sept 27), and an optimistic-relay design v1–v10 (dropped Nov 2). Their history is in [`docs/timeline.md`](docs/timeline.md).
+> **Project status (Nov 12, 2026): paused, not maintained, looking for someone to pick it up.** Everything here runs in a simulator only. It has never moved real funds and has had no independent audit. Do not use it with real money. See [Picking this up](#picking-this-up) for what is done and what is left.
+
+## Where it stands
+
+- **Design:** "Path 1", a Farcaster/COMIT-style adaptor-signature swap. Spec **v0.7** (escrow contract v0.7) is in [`spec/spec.md`](spec/spec.md), with every design decision (D1–D50) in [`spec/decisions.md`](spec/decisions.md).
+- **Code:** an Aiken escrow validator for Cardano, a Rust crate that builds split-key Zcash Orchard transactions and the cross-group DLEQ, JavaScript wallet logic and an end-to-end simulator, and Python timing / state models.
+- **Validation (simulator only):** 727/727 end-to-end checks in both the simulator profile and the rehearsal profile (NU7, K = 15, Z = 30), the Aiken escrow tests, the wallet-gate probes (13/13, 58/58), the step 10 and step 11 regression tests (21/21, 30/30) and 10/10 proof-of-knowledge checks. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) rebuilds the escrow from source and checks it is byte-identical to the committed script hash.
+- **Reviews:** seven AI-run reviews and assessments (`docs/reviews/`). The latest, [review 7](docs/reviews/review7-assessment.md), found no issue in the escrow or the cryptography and gave a conditional pass for a testnet rehearsal; its two wallet findings are fixed. None of these is an independent human audit.
+- **Testnet:** a rehearsal on Zcash testnet and Cardano preprod (throwaway keys, faucet coins only) was planned and approved ([`docs/rehearsal/`](docs/rehearsal/)). No testnet results are recorded in this repo.
+- **Earlier attempts that failed or were dropped:** R1 (a ZK light client of Zcash on Cardano, archived Sept 10), R2 (paused Sept 27) and an optimistic-relay design v1–v10 (dropped Nov 2). What was tried and why it failed is in [`docs/timeline.md`](docs/timeline.md). That history may save you weeks if you are considering a light-client or relay approach.
 
 ## Honesty caveats (please read)
 
 - **Simulator only.** No swap has run on any real chain. The Zcash side uses real libraries (orchard 0.16 / zcash_primitives 0.31, real proofs) checked by a *simulated* node. The Cardano side runs in a local emulator.
-- **Internal reviews only.** All five attack reviews were done by AI agents working on the box. They were separate passes, but **none is an independent third-party audit.**
+- **Internal reviews only.** All seven reviews and assessments were done by AI agents. They were separate passes, but **none is an independent third-party audit.**
 - **`use_qsk` is not yet validated against real Zebra.** The ZIP 2005 Ironwood key derivation is our own code. It matches two independent but unofficial third-party vectors. No real Zebra node has accepted a transaction built with it yet. The rehearsal is the first test of that.
 - Timing safety assumes honest transactions get mined within stated bounds. Censorship of Cardano transactions is the main residual risk; it is bounded, not eliminated.
 - Not for real funds.
@@ -40,11 +45,24 @@ Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They should be able to t
 - Secrets are revealed only *after* a secret-free on-chain commitment (Commit/Notice). This defeats the censorship-theft attacks found in reviews 4 and 5.
 - The trade-off we accepted: if Alice disappears, Bob is compensated in ADA (Forfeit). He does not get his original ZEC back.
 
+## Picking this up
+
+If you want to continue this work, these are the open items, roughly in order. Each is described in more detail in [review 7](docs/reviews/review7-assessment.md) and [review 6](docs/reviews/review6-assessment-and-recommendations.md).
+
+1. **Validate `use_qsk` against a real Zebra node.** The ZIP 2005 key derivation for the joint key is our own code. It matches two unofficial third-party vectors but no real node has accepted a transaction built with it. This is the biggest unknown, and a testnet rehearsal ([`docs/rehearsal/proposal-v2.md`](docs/rehearsal/proposal-v2.md) plus amendment 1) is the planned way to check it.
+2. **Measure real inclusion and settlement times** on testnet, and check them against the timing model (`src/model/step9_model.py`). Safety depends on honest transactions being mined within the stated bounds.
+3. **Split Alice and Bob into fully separate clients.** Step 11 gave each party its own view, state and secret watcher process, but transaction building and UTxO discovery still run in one simulator process.
+4. **Remove the leftover absolute paths** (`/workspace/...`) in older scripts and tests so everything runs from a fresh clone.
+5. **Design the price feed / value cap** and analyse coalition censorship on Cardano, the main residual risk.
+6. **Get an independent human audit** before anything touches real funds.
+
+Good places to start reading: [`spec/spec.md`](spec/spec.md) for the protocol, `src/ada/onchain/validators/escrow.ak` for the contract, `src/zec/src/dleq.rs` for the DLEQ, and `src/ada/e2e9.mjs` for the full flow and its attack scenarios. Related projects and papers are listed in [`docs/prior-art/prior-art.md`](docs/prior-art/prior-art.md).
+
 ## Repository map
 
 | Path | What it is |
 |---|---|
-| `spec/` | Current design: `spec.md` (v0.7), `decisions.md` (D1–D46), step 9 `memo.md`, `selfcheck.md`, `progress.md`, NU7 research summary |
+| `spec/` | Current design: `spec.md` (v0.7), `decisions.md` (D1–D50), step 9 `memo.md`, `selfcheck.md`, `progress.md`, NU7 research summary |
 | `src/ada/` | Cardano side (step 9): Aiken validator `onchain/validators/escrow.ak`, emulator/ledger, wallet policies `policy6–9.mjs`, end-to-end simulators `e2e*.mjs` |
 | `src/zec/` | Zcash side (step 9): Rust crate for split-key Ironwood txs, DLEQ, simulated node rules (`src/`, `examples/pok_isolated.rs`, `neg_tests.sh`) |
 | `src/model/` | Python state-model checkers and timing models (steps 1–9) |
@@ -56,14 +74,17 @@ Alice has ADA and wants ZEC. Bob has ZEC and wants ADA. They should be able to t
 | `docs/timeline.md` | Trial-and-failure history: R1 → R2 → relay v1–v10 → Path 1 steps and reviews |
 | `docs/R1-unshielded.md` | R1's unshielded / public-chain successes (Equihash, header proofs, recursive proof) |
 | `docs/path1/stepN/` | Memos, specs and decisions for steps 1–8 (code is summarised; only step 9 code is included) |
-| `docs/reviews/` | The Path 1 attack reviews 1–5 and the Nov 9 assessment (review 7) |
+| `docs/reviews/` | The Path 1 attack reviews 1–5, review 6 (project assessment and recommendations) and the Nov 9 assessment (review 7) |
 | `docs/relay-design/` | The superseded relay design: research, architecture, dispute design, reviews v6–v10, v10 report, reflection and plan, decisions log, audit |
 | `docs/history/R1`, `docs/history/R2` | Cleaned copies of key R1/R2 summary docs (local paths scrubbed) |
 | `docs/prior-art/` | Prior-art notes (Farcaster/COMIT, Athanor, Logos ...) |
-| `docs/rehearsal/` | Testnet rehearsal proposals v1 and v2 |
+| `docs/rehearsal/` | Testnet rehearsal proposals v1 and v2, and amendment 1 (3-hour refund tail) |
 | `SECURITY-EXCLUSIONS.md` | What was deliberately left out, and why |
 
-### Running things (simulator)
+## How to run it (simulator)
+
+Tested with Node 22, Rust stable, Python 3 and Aiken v1.1.24. The quickest way to see exactly what runs, and in which order, is [`.github/workflows/ci.yml`](.github/workflows/ci.yml): CI rebuilds the escrow, checks its hash, and runs every suite below on each PR.
+
 These files were copied from a working tree. Some scripts still use absolute paths from the original box layout (`/workspace/...`) or expect `node_modules`, a built `zec` binary, or a local `aiken` binary, so expect to adjust paths.
 - Cardano: `cd src/ada && npm ci && cd onchain && aiken check`; then e.g. `node e2e9.mjs all`
 - Zcash: `cd src/zec && cargo build --release && cargo run --release --example pok_isolated`
@@ -81,4 +102,4 @@ All keys are generated fresh at runtime. None are stored in the repo.
 
 ## License
 
-**No license has been chosen. All rights reserved.** Please don't reuse or redistribute this work without permission. Third-party ZIP texts and papers are not included; see the links in `docs/prior-art/`.
+Released under the [MIT License](LICENSE). Third-party ZIP texts and papers are not included; see the links in `docs/prior-art/`.
